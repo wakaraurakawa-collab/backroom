@@ -303,7 +303,9 @@
 
     g.userData = {
       path: [], state: 'idle', timer: rand(0, 1.2), fleeTimer: 0, encTimer: 0,
-      encounterCooldown: 0, speed: rand(1.5, 2.1), bobPhase: rand(0, Math.PI * 2), facing: 0
+      encounterCooldown: 0, speed: rand(1.5, 2.1), bobPhase: rand(0, Math.PI * 2), facing: 0,
+      weakenTimer: 0,
+      stats: { attack: rand(4, 10), defense: rand(4, 10) }
     };
     return g;
   }
@@ -367,6 +369,20 @@
   }
 
   const behaviorWeights = { fight: 30, flee: 40, communicate: 30 };
+  const WEAKEN_DURATION = 5;
+  const WEAKEN_SPEED_MUL = 0.55;
+
+  function sendFleeing(fleer, threatCell, fleeTimerRange) {
+    const fleerGrid = worldToGrid(fleer.position.x, fleer.position.z);
+    const fromCell = nearestFloorCell(fleerGrid.gx, fleerGrid.gz);
+    const target = pickFleeTarget(threatCell);
+    const path = findPath(fromCell, target);
+    if (path && path.length > 1) {
+      fleer.userData.path = path.slice(1).map(cell => gridToWorld(cell.gx, cell.gz));
+      fleer.userData.state = 'fleeing';
+      fleer.userData.fleeTimer = rand(fleeTimerRange[0], fleeTimerRange[1]);
+    }
+  }
 
   function resolveEncounter(a, b) {
     const total = behaviorWeights.fight + behaviorWeights.flee + behaviorWeights.communicate;
@@ -379,8 +395,16 @@
     const mid = new THREE.Vector3().addVectors(a.position, b.position).multiplyScalar(0.5);
 
     if (type === 'fight') {
-      a.userData.state = 'encounter'; a.userData.encTimer = 1.0;
-      b.userData.state = 'encounter'; b.userData.encTimer = 1.0;
+      const scoreA = a.userData.stats.attack + rand(0, 4) - b.userData.stats.defense;
+      const scoreB = b.userData.stats.attack + rand(0, 4) - a.userData.stats.defense;
+      const winner = scoreA >= scoreB ? a : b;
+      const loser = winner === a ? b : a;
+
+      winner.userData.state = 'encounter'; winner.userData.encTimer = 1.0;
+      loser.userData.weakenTimer = WEAKEN_DURATION;
+      const threatCell = worldToGrid(winner.position.x, winner.position.z);
+      sendFleeing(loser, threatCell, [2.0, 3.0]);
+
       spawnEffect(mid, 'fight');
     } else if (type === 'communicate') {
       a.userData.state = 'encounter'; a.userData.encTimer = 1.2;
@@ -389,16 +413,8 @@
     } else {
       const fleer = Math.random() < 0.5 ? a : b;
       const other = fleer === a ? b : a;
-      const fleerGrid = worldToGrid(fleer.position.x, fleer.position.z);
-      const fromCell = nearestFloorCell(fleerGrid.gx, fleerGrid.gz);
       const threatCell = worldToGrid(other.position.x, other.position.z);
-      const target = pickFleeTarget(threatCell);
-      const path = findPath(fromCell, target);
-      if (path && path.length > 1) {
-        fleer.userData.path = path.slice(1).map(cell => gridToWorld(cell.gx, cell.gz));
-        fleer.userData.state = 'fleeing';
-        fleer.userData.fleeTimer = rand(1.8, 2.8);
-      }
+      sendFleeing(fleer, threatCell, [1.8, 2.8]);
       other.userData.state = 'encounter'; other.userData.encTimer = 0.4;
       spawnEffect(fleer.position, 'flee');
     }
@@ -440,8 +456,9 @@
       d.path.shift();
     } else {
       const nx = dx / dist, nz = dz / dist;
-      c.position.x += nx * d.speed * speedMul * dt;
-      c.position.z += nz * d.speed * speedMul * dt;
+      const weakenMul = d.weakenTimer > 0 ? WEAKEN_SPEED_MUL : 1;
+      c.position.x += nx * d.speed * speedMul * weakenMul * dt;
+      c.position.z += nz * d.speed * speedMul * weakenMul * dt;
       updateFacing(d, nx, nz, dt);
     }
   }
@@ -495,6 +512,7 @@
 
     critters.forEach(c => {
       const d = c.userData;
+      if (d.weakenTimer > 0) d.weakenTimer -= dt;
       if (d.state === 'idle') {
         d.timer -= dt;
         if (d.timer <= 0) {
