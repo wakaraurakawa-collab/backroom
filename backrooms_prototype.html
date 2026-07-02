@@ -65,7 +65,7 @@
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-  let grid, floorCells, obstacleDefs;
+  let grid, floorCells, coverCells, obstacleDefs;
 
   function generateMaze() {
     const g = Array.from({ length: GRID_H }, () => new Array(GRID_W).fill(WALL));
@@ -371,6 +371,13 @@
       for (let x = 0; x < GRID_W; x++)
         if (grid[z][x] === FLOOR) floorCells.push({ gx: x, gz: z });
 
+    // floor cells next to an obstacle double as hiding spots
+    coverCells = floorCells.filter(c =>
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => {
+        const nx = c.gx + dx, nz = c.gz + dz;
+        return nx >= 0 && nz >= 0 && nx < GRID_W && nz < GRID_H && grid[nz][nx] === OBST;
+      }));
+
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -512,7 +519,7 @@
       noticeTimer: 0, pendingThreat: null, pendingEngage: false,
       shootTimer: 0, shotsLeft: 0,
       punchPhase: 0, punchTimer: 0,
-      fleeTimer: 0, staggerTimer: 0, downTimer: 0, fallT: 0,
+      fleeTimer: 0, staggerTimer: 0, deadTimer: 0, fallT: 0, pursuitRolled: false,
       weakenTimer: 0, bobPhase: rand(0, Math.PI * 2), walkPhase: rand(0, Math.PI * 2),
       rig, legL, legR, armL, armR, gunMesh
     };
@@ -659,6 +666,7 @@
     d.target = target;
     d.lastSeen = { x: target.position.x, z: target.position.z };
     d.loseSightTimer = 0;
+    d.pursuitRolled = false;
     if (d.weapon === 'gun') {
       d.state = 'shoot';
       d.shotsLeft = Math.floor(rand(2, 6));
@@ -669,10 +677,41 @@
     }
   }
 
+  const LOW_HP = 35;
+
+  // Wounded NPCs run for a spot beside an obstacle, ideally out of the threat's sight.
+  function findCoverCell(threatPos) {
+    const cands = coverCells.length ? coverCells : floorCells;
+    let best = null, bestScore = -Infinity;
+    for (let i = 0; i < 14; i++) {
+      const cand = pick(cands);
+      const p = gridToWorld(cand.gx, cand.gz);
+      const hidden = !hasLOS(threatPos.x, threatPos.z, p.x, p.z);
+      const score = (hidden ? 100 : 0) + Math.hypot(p.x - threatPos.x, p.z - threatPos.z);
+      if (score > bestScore) { bestScore = score; best = cand; }
+    }
+    return best;
+  }
+
+  function startHide(npc, threatPos) {
+    const d = npc.userData;
+    const raw = worldToGrid(npc.position.x, npc.position.z);
+    const from = nearestFloorCell(raw.gx, raw.gz);
+    const path = findPath(from, findCoverCell(threatPos));
+    d.target = null;
+    if (path && path.length > 1) {
+      d.path = path.slice(1).map(cell => gridToWorld(cell.gx, cell.gz));
+      d.state = 'seekCover';
+    } else {
+      d.state = 'hide';
+    }
+  }
+
   function reactToThreat(npc, threat, sawIt) {
     // sawIt: noticed visually (calm decision). Otherwise: got hit (higher chance to fight back).
     const d = npc.userData;
     d.decisionCooldown = rand(2.5, 4.5);
+    if (d.hp < LOW_HP) { startHide(npc, threat.position); return; }
     const engageP = sawIt ? effAggro(d) : clamp(effAggro(d) + 0.2, 0.05, 0.98);
     if (Math.random() < engageP) startEngage(npc, threat);
     else startFlee(npc, threat.position);
@@ -680,12 +719,12 @@
 
   function takeDamage(npc, attacker, dmg) {
     const d = npc.userData;
-    if (d.state === 'down') return;
+    if (d.state === 'dead') return;
     d.hp -= dmg;
     spawnBurst(npc.position.clone().setY(npc.position.y + 0.6), 0xe24b4a);
     if (d.hp <= 0) {
-      d.state = 'down';
-      d.downTimer = rand(5, 9);
+      d.state = 'dead';
+      d.deadTimer = 2.8;
       d.fallT = 0;
       d.target = null;
       d.path = [];
@@ -698,8 +737,9 @@
     const kc = worldToGrid(nxp, nzp);
     if (grid[kc.gz][kc.gx] === FLOOR) { npc.position.x = nxp; npc.position.z = nzp; }
 
-    // if not already engaged with this attacker, stagger then decide: retaliate or flee
-    if (d.target !== attacker && d.state !== 'flee') {
+    // wounded NPCs always break off (stagger → hide); otherwise stagger only when not
+    // already engaged with this attacker, then decide: retaliate or flee
+    if (d.hp < LOW_HP || (d.target !== attacker && d.state !== 'flee')) {
       d.state = 'stagger';
       d.staggerTimer = 0.35;
       d.pendingThreat = attacker;
@@ -767,6 +807,24 @@
   }
 
   // ================= per-NPC brain =================
+  // When the target starts retreating, the attacker rolls once: keep chasing or let it go.
+  function pursuitLost(npc, target) {
+    const d = npc.userData;
+    const ts = target.userData.state;
+    const retreating = ts === 'flee' || ts === 'seekCover' || ts === 'hide';
+    if (!retreating) return false;
+    if (!d.pursuitRolled) {
+      d.pursuitRolled = true;
+      if (Math.random() < 0.5) {
+        d.target = null;
+        d.state = 'idle';
+        d.timer = rand(0.5, 1.5);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function updateNPC(npc, dt, t) {
     const d = npc.userData;
     if (d.weakenTimer > 0) d.weakenTimer -= dt;
@@ -778,7 +836,7 @@
       if (d.scanTimer <= 0) {
         d.scanTimer = rand(0.12, 0.22);
         for (const other of npcs) {
-          if (other === npc || other.userData.state === 'down') continue;
+          if (other === npc || other.userData.state === 'dead') continue;
           if (canSee(npc, other)) {
             d.state = 'notice';
             d.noticeTimer = rand(0.25, 0.45);
@@ -809,17 +867,18 @@
         if (d.noticeTimer <= 0) {
           const threat = d.pendingThreat;
           d.pendingThreat = null;
-          if (threat && threat.userData.state !== 'down') reactToThreat(npc, threat, true);
+          if (threat && threat.userData.state !== 'dead') reactToThreat(npc, threat, true);
           else { d.state = 'idle'; d.timer = rand(0.3, 1.0); }
         }
         break;
       }
       case 'chase': {
         const target = d.target;
-        if (!target || target.userData.state === 'down') {
+        if (!target || target.userData.state === 'dead') {
           d.target = null; d.state = 'idle'; d.timer = rand(0.4, 1.2);
           break;
         }
+        if (pursuitLost(npc, target)) break;
         const dist = npc.position.distanceTo(target.position);
         const seen = losTo(npc, target);
         if (seen) {
@@ -864,10 +923,11 @@
       }
       case 'shoot': {
         const target = d.target;
-        if (!target || target.userData.state === 'down') {
+        if (!target || target.userData.state === 'dead') {
           d.target = null; d.state = 'idle'; d.timer = rand(0.4, 1.2);
           break;
         }
+        if (pursuitLost(npc, target)) break;
         const dist = npc.position.distanceTo(target.position);
         const seen = losTo(npc, target);
         faceToward(npc, target.position, dt);
@@ -886,7 +946,7 @@
           d.shootTimer = rand(0.55, 0.95);
           if (d.shotsLeft <= 0) {
             // burst over: keep fighting, back off, or wander
-            if (target.userData.state !== 'down' && Math.random() < effAggro(d)) {
+            if (target.userData.state !== 'dead' && Math.random() < effAggro(d)) {
               d.shotsLeft = Math.floor(rand(2, 6));
             } else {
               d.target = null;
@@ -906,14 +966,14 @@
             // strike lands
             d.punchPhase = 1;
             d.punchTimer = 0.35;
-            if (target && target.userData.state !== 'down' &&
+            if (target && target.userData.state !== 'dead' &&
                 npc.position.distanceTo(target.position) < PUNCH_RANGE + 0.25) {
               takeDamage(target, npc, rand(10, 20));
               spawnBurst(target.position.clone().setY(target.position.y + 0.5), 0xfff2b0);
             }
           } else {
             // recovered: keep at it or disengage
-            if (target && target.userData.state !== 'down' && Math.random() < effAggro(d)) {
+            if (target && target.userData.state !== 'dead' && Math.random() < effAggro(d)) {
               if (npc.position.distanceTo(target.position) < PUNCH_RANGE) {
                 d.punchPhase = 0; d.punchTimer = 0.22;
               } else {
@@ -938,21 +998,30 @@
         if (d.staggerTimer <= 0) {
           const threat = d.pendingThreat;
           d.pendingThreat = null;
-          if (threat && threat.userData.state !== 'down') reactToThreat(npc, threat, false);
+          if (threat && threat.userData.state !== 'dead') reactToThreat(npc, threat, false);
           else { d.state = 'idle'; d.timer = rand(0.3, 0.8); }
         }
         break;
       }
-      case 'down': {
-        d.downTimer -= dt;
-        d.fallT = Math.min(1, d.fallT + dt * 3.5);
-        if (d.downTimer <= 0) {
-          d.hp = Math.round(d.maxHp * 0.5);
-          d.weakenTimer = 5;
-          d.fallT = 0;
-          d.decisionCooldown = rand(1.5, 3);
-          startFlee(npc, npc.position); // scramble somewhere else
+      case 'seekCover': {
+        if (d.path.length === 0) d.state = 'hide';
+        else followPath(npc, d, dt, 1.55);
+        break;
+      }
+      case 'hide': {
+        // crouch behind cover and recover; rejoin the world at 80% HP
+        d.hp = Math.min(d.maxHp, d.hp + 7 * dt);
+        if (d.hp >= d.maxHp * 0.8) {
+          d.weakenTimer = 0;
+          d.decisionCooldown = rand(1, 2);
+          d.state = 'idle';
+          d.timer = rand(0.5, 1.5);
         }
+        break;
+      }
+      case 'dead': {
+        d.deadTimer -= dt;
+        d.fallT = Math.min(1, d.fallT + dt * 3.5);
         break;
       }
     }
@@ -960,19 +1029,22 @@
     // --- pose / animation ---
     npc.rotation.y = d.facing;
     const rig = d.rig;
-    const moving = d.state === 'wander' || d.state === 'chase' || d.state === 'flee';
-    const speedMul = d.state === 'flee' ? 1.65 : d.state === 'chase' ? 1.35 : 1;
+    const moving = d.state === 'wander' || d.state === 'chase' || d.state === 'flee' || d.state === 'seekCover';
+    const speedMul = d.state === 'flee' ? 1.65 : d.state === 'seekCover' ? 1.55 : d.state === 'chase' ? 1.35 : 1;
 
-    if (d.state === 'down') {
+    if (d.state === 'dead') {
       rig.rotation.x = -Math.PI / 2 * d.fallT;
       rig.position.y = 0.1 * d.fallT;
+      rig.scale.y = 1;
       d.legL.rotation.x = d.legR.rotation.x = 0;
       d.armL.rotation.x = d.armR.rotation.x = 0;
-      npc.position.y = 0;
+      // once fallen, sink into the floor before removal
+      npc.position.y = d.deadTimer < 1 ? -(1 - d.deadTimer) * 1.1 : 0;
       return;
     }
     rig.rotation.x = d.state === 'stagger' ? -0.25 : 0;
-    rig.position.y = 0;
+    rig.position.y = d.state === 'hide' ? -0.1 : 0;
+    rig.scale.y = d.state === 'hide' ? 0.72 : 1;
 
     if (moving) {
       d.walkPhase += dt * 9 * speedMul;
@@ -1050,9 +1122,22 @@
     updateEffects(dt);
     npcs.forEach(npc => updateNPC(npc, dt, t));
 
+    // remove NPCs whose death animation has finished (population only refills on regen)
+    for (let i = npcs.length - 1; i >= 0; i--) {
+      const d = npcs[i].userData;
+      if (d.state === 'dead' && d.deadTimer <= 0) {
+        worldGroup.remove(npcs[i]);
+        disposeCreated(npcs[i]);
+        npcs.splice(i, 1);
+      }
+    }
+
     renderer.render(scene, camera);
   }
   animate();
+
+  // debug hook for automated tests
+  window.__npcCount = () => npcs.length;
 })();
 </script>
 </body>
