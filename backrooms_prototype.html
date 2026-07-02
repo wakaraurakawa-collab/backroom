@@ -37,15 +37,44 @@
   }
   #regen:hover { background: #6fa87d; transform: scale(1.02); }
   #regen:active { transform: scale(0.97); }
+  #npcPanel {
+    position: fixed; top: 16px; right: 16px; width: 220px;
+    background: rgba(255,255,255,0.88); backdrop-filter: blur(8px);
+    border-radius: 14px; padding: 12px 14px;
+    box-shadow: 0 8px 28px rgba(60,50,40,0.22);
+    font-size: 12px; color: #4a4238;
+  }
+  #npcPanel[hidden] { display: none; }
+  #npcName { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  #npcClose {
+    position: absolute; top: 8px; right: 10px; border: none; background: none;
+    font-size: 14px; color: #8a7f70; cursor: pointer;
+  }
+  .stat { display: flex; justify-content: space-between; margin: 3px 0; }
+  .stat .v { font-weight: 600; }
+  #hpBarWrap { height: 8px; background: #ded5c2; border-radius: 999px; overflow: hidden; margin: 4px 0 8px; }
+  #hpBar { height: 100%; background: #7fb98d; border-radius: 999px; transition: width 0.2s ease; }
 </style>
 </head>
 <body>
 <div id="canvas-container"></div>
-<div id="hint">ドラッグで視点を回転・スクロールでズーム</div>
+<div id="hint">ドラッグで視点回転・スクロールでズーム・生き物をクリックで詳細</div>
+<div id="npcPanel" hidden>
+  <button id="npcClose">✕</button>
+  <div id="npcName"></div>
+  <div id="hpBarWrap"><div id="hpBar"></div></div>
+  <div class="stat"><span>HP</span><span class="v" id="npcHp"></span></div>
+  <div class="stat"><span>状態</span><span class="v" id="npcState"></span></div>
+  <div class="stat"><span>武器</span><span class="v" id="npcWeapon"></span></div>
+  <div class="stat"><span>アーモンドウォーター</span><span class="v" id="npcItems"></span></div>
+  <div class="stat"><span>攻撃性</span><span class="v" id="npcAggro"></span></div>
+  <div class="stat"><span>友好度</span><span class="v" id="npcFriendly"></span></div>
+  <div class="stat"><span>足の速さ</span><span class="v" id="npcSpeed"></span></div>
+</div>
 <div id="panel">
   <div id="sliders">
-    <div class="row"><label>生き物の数 <span id="countVal">10</span></label>
-      <input type="range" id="countSlider" min="3" max="16" step="1" value="10"></div>
+    <div class="row"><label>生き物の数 <span id="countVal">12</span></label>
+      <input type="range" id="countSlider" min="3" max="20" step="1" value="12"></div>
     <div class="row"><label>攻撃性 <span id="aggroVal">50</span></label>
       <input type="range" id="aggroSlider" min="0" max="100" step="1" value="50"></div>
     <div class="row"><label>銃を持つ割合 <span id="gunVal">50</span></label>
@@ -58,7 +87,7 @@
 <script>
 (function () {
   // ================= grid / maze generation (BSP) =================
-  const GRID_W = 16, GRID_H = 16, CELL = 2.4, WALL_H = 2.6;
+  const GRID_W = 22, GRID_H = 22, CELL = 2.4, WALL_H = 2.6;
   const WALL = 0, FLOOR = 1, OBST = 2;
 
   function rand(min, max) { return Math.random() * (max - min) + min; }
@@ -73,8 +102,8 @@
     function carveRoom(rx, ry, rw, rh) {
       const pad = 1;
       const availW = rw - pad * 2, availH = rh - pad * 2;
-      const roomW = Math.max(3, availW - Math.floor(rand(0, 2)));
-      const roomH = Math.max(3, availH - Math.floor(rand(0, 2)));
+      const roomW = Math.max(2, availW - Math.floor(rand(0, 2)));
+      const roomH = Math.max(2, availH - Math.floor(rand(0, 2)));
       const roomX = rx + pad + Math.floor(Math.random() * Math.max(1, availW - roomW + 1));
       const roomY = ry + pad + Math.floor(Math.random() * Math.max(1, availH - roomH + 1));
       for (let y = roomY; y < roomY + roomH; y++)
@@ -97,7 +126,7 @@
       g[ty][tx] = FLOOR;
     }
 
-    const minLeaf = 5;
+    const minLeaf = 4;
     function split(rx, ry, rw, rh, depth) {
       const canW = rw >= minLeaf * 2, canH = rh >= minLeaf * 2;
       if (depth <= 0 || (!canW && !canH)) return carveRoom(rx, ry, rw, rh);
@@ -116,7 +145,7 @@
         return Math.random() < 0.5 ? a : b;
       }
     }
-    split(0, 0, GRID_W, GRID_H, 4);
+    split(0, 0, GRID_W, GRID_H, 5);
     return g;
   }
 
@@ -145,6 +174,8 @@
     return count === total;
   }
 
+  const OBSTACLE_TYPES = ['crate', 'crate', 'pillar', 'locker', 'barrel', 'sofa', 'shelf', 'vending', 'plant'];
+
   // Obstacles occupy floor cells; each placement keeps the walkable floor fully connected
   // so pathfinding never gets stranded.
   function placeObstacles(g) {
@@ -153,15 +184,15 @@
     for (let z = 0; z < GRID_H; z++)
       for (let x = 0; x < GRID_W; x++)
         if (g[z][x] === FLOOR) floors.push({ gx: x, gz: z });
-    const target = Math.round(floors.length * rand(0.07, 0.11));
+    const target = Math.round(floors.length * rand(0.06, 0.09));
     let attempts = 0;
-    while (defs.length < target && attempts < 150) {
+    while (defs.length < target && attempts < 200) {
       attempts++;
       const c = pick(floors);
       if (g[c.gz][c.gx] !== FLOOR) continue;
       g[c.gz][c.gx] = OBST;
       if (!floorConnected(g)) { g[c.gz][c.gx] = FLOOR; continue; }
-      defs.push({ gx: c.gx, gz: c.gz, type: pick(['crate', 'pillar', 'locker']) });
+      defs.push({ gx: c.gx, gz: c.gz, type: pick(OBSTACLE_TYPES) });
     }
     return defs;
   }
@@ -298,14 +329,45 @@
     }
   });
 
+  const barrelTex = makeCanvas(64, 64, (ctx, w, h) => {
+    ctx.fillStyle = '#7a4535';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(40,20,12,0.55)';
+    ctx.fillRect(0, 10, w, 5);
+    ctx.fillRect(0, 30, w, 5);
+    ctx.fillRect(0, 50, w, 5);
+    for (let i = 0; i < 300; i++) {
+      ctx.fillStyle = Math.random() < 0.5 ? 'rgba(120,70,30,0.25)' : 'rgba(30,15,8,0.2)';
+      ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+    }
+  });
+
+  const vendingTex = makeCanvas(128, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#27415e';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#dfe8f0';
+    ctx.fillRect(12, 16, w - 44, 130);
+    const canColors = ['#d9534f', '#6fa8d6', '#7fb98d', '#cf9a4c', '#c46a9a'];
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = canColors[(r * 4 + c) % canColors.length];
+        ctx.fillRect(18 + c * 18, 24 + r * 30, 12, 22);
+      }
+    }
+    ctx.fillStyle = '#1a2b3e';
+    ctx.fillRect(w - 26, 20, 16, 60);
+    ctx.fillStyle = '#0e1a28';
+    ctx.fillRect(16, h - 70, w - 32, 44);
+  });
+
   // ================= three.js setup =================
   const container = document.getElementById('canvas-container');
   const scene = new THREE.Scene();
   const bgColor = 0xB8AE8C;
   scene.background = new THREE.Color(bgColor);
-  scene.fog = new THREE.Fog(bgColor, 26, 62);
+  scene.fog = new THREE.Fog(bgColor, 32, 85);
 
-  const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 200);
+  const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 220);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -322,13 +384,13 @@
   const hemi = new THREE.HemisphereLight(0xfff4cf, 0x8a7a4d, 0.9);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0c0, 0.85);
-  sun.position.set(14, 22, 10);
+  sun.position.set(18, 26, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -22;
-  sun.shadow.camera.right = 22;
-  sun.shadow.camera.top = 22;
-  sun.shadow.camera.bottom = -22;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -32;
+  sun.shadow.camera.right = 32;
+  sun.shadow.camera.top = 32;
+  sun.shadow.camera.bottom = -32;
   sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun);
 
@@ -336,7 +398,6 @@
   const floorMat = new THREE.MeshLambertMaterial({ map: carpetTex });
   const crateMat = new THREE.MeshLambertMaterial({ map: crateTex });
   const pillarMat = new THREE.MeshLambertMaterial({ map: wallpaperTex });
-  const lockerMat = new THREE.MeshLambertMaterial({ color: 0x5e6b5e });
   const wallGeo = new THREE.BoxGeometry(CELL, WALL_H, CELL);
   const floorGeo = new THREE.PlaneGeometry(GRID_W * CELL, GRID_H * CELL);
 
@@ -344,21 +405,136 @@
   scene.add(worldGroup);
   let npcs = [];
   let effects = [];
+  let items = [];
+  let itemRespawnTimer = 0;
+  const ITEM_MAX = 14;
 
   function clearGroup(group) {
     group.children.slice().forEach(child => group.remove(child));
   }
 
   function disposeCreated(root) {
-    // NPC / obstacle meshes are created per-instance; shared singletons (wallGeo etc.) are
-    // never passed here.
+    // NPC / obstacle / item meshes are created per-instance; shared singletons
+    // (wallGeo, wallMat, crateMat, ...) are never passed here.
     root.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) {
+      if (obj.material && obj.material !== wallMat && obj.material !== floorMat &&
+          obj.material !== crateMat && obj.material !== pillarMat) {
         if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
         else obj.material.dispose();
       }
     });
+  }
+
+  // ================= obstacles =================
+  function buildObstacleMesh(type) {
+    const g = new THREE.Group();
+    if (type === 'crate') {
+      const size = CELL * 0.6;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
+      box.position.y = size / 2;
+      box.rotation.y = rand(-0.3, 0.3);
+      g.add(box);
+      if (Math.random() < 0.5) {
+        const s2 = size * 0.7;
+        const box2 = new THREE.Mesh(new THREE.BoxGeometry(s2, s2, s2), crateMat);
+        box2.position.set(rand(-0.15, 0.15), size + s2 / 2, rand(-0.15, 0.15));
+        box2.rotation.y = rand(-0.5, 0.5);
+        g.add(box2);
+      }
+    } else if (type === 'pillar') {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(CELL * 0.3, CELL * 0.34, WALL_H, 12), pillarMat);
+      m.position.y = WALL_H / 2;
+      g.add(m);
+    } else if (type === 'locker') {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(CELL * 0.55, 1.9, CELL * 0.4),
+        new THREE.MeshLambertMaterial({ color: 0x5e6b5e }));
+      m.position.y = 0.95;
+      m.rotation.y = pick([0, Math.PI / 2]) + rand(-0.15, 0.15);
+      g.add(m);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.05),
+        new THREE.MeshLambertMaterial({ color: 0x3d463d }));
+      handle.position.set(CELL * 0.18, 1.0, CELL * 0.21);
+      handle.rotation.y = m.rotation.y;
+      g.add(handle);
+    } else if (type === 'barrel') {
+      const barrelMat = new THREE.MeshLambertMaterial({ map: barrelTex });
+      const positions = Math.random() < 0.4
+        ? [[-0.45, 0.35], [0.4, -0.3]]
+        : [[0, 0]];
+      positions.forEach(([ox, oz]) => {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.1, 12), barrelMat);
+        m.position.set(ox, 0.55, oz);
+        g.add(m);
+        const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.05, 12),
+          new THREE.MeshLambertMaterial({ color: 0x4a2a1e }));
+        lid.position.set(ox, 1.12, oz);
+        g.add(lid);
+      });
+    } else if (type === 'sofa') {
+      const fabric = new THREE.MeshLambertMaterial({ color: pick([0x8c5a5a, 0x5a7a8c, 0x6b8c5a, 0x8c7a5a]) });
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.45, 0.8), fabric);
+      seat.position.y = 0.35;
+      g.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.65, 0.25), fabric);
+      back.position.set(0, 0.85, -0.3);
+      g.add(back);
+      [-0.85, 0.85].forEach(x => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.35, 0.8), fabric);
+        arm.position.set(x, 0.72, 0);
+        g.add(arm);
+      });
+      g.rotation.y = rand(0, Math.PI * 2);
+    } else if (type === 'shelf') {
+      const wood = new THREE.MeshLambertMaterial({ color: 0x6b4e30 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.9, 0.5), wood);
+      body.position.y = 0.95;
+      g.add(body);
+      const dark = new THREE.MeshLambertMaterial({ color: 0x3d2c1a });
+      for (let i = 0; i < 3; i++) {
+        const slot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.42, 0.06), dark);
+        slot.position.set(0, 0.42 + i * 0.55, 0.24);
+        g.add(slot);
+        // a few "books"
+        for (let b = 0; b < 4; b++) {
+          if (Math.random() < 0.35) continue;
+          const book = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.05),
+            new THREE.MeshLambertMaterial({ color: pick([0xd9534f, 0x6fa8d6, 0x7fb98d, 0xcf9a4c, 0xe8e0c8]) }));
+          book.position.set(-0.45 + b * 0.28 + rand(-0.04, 0.04), 0.44 + i * 0.55, 0.26);
+          book.rotation.z = rand(-0.08, 0.08);
+          g.add(book);
+        }
+      }
+      g.rotation.y = pick([0, Math.PI / 2, Math.PI]);
+    } else if (type === 'vending') {
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.95, 0.85), [
+        new THREE.MeshLambertMaterial({ color: 0x203852 }),
+        new THREE.MeshLambertMaterial({ color: 0x203852 }),
+        new THREE.MeshLambertMaterial({ color: 0x2a4a6b }),
+        new THREE.MeshLambertMaterial({ color: 0x16273a }),
+        new THREE.MeshLambertMaterial({ map: vendingTex }),
+        new THREE.MeshLambertMaterial({ color: 0x203852 })
+      ]));
+      g.children[0].position.y = 0.98;
+      g.rotation.y = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
+    } else { // plant
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.4, 10),
+        new THREE.MeshLambertMaterial({ color: 0xa8623e }));
+      pot.position.y = 0.2;
+      g.add(pot);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.7, 6),
+        new THREE.MeshLambertMaterial({ color: 0x5a4028 }));
+      trunk.position.y = 0.7;
+      g.add(trunk);
+      const leafMat = new THREE.MeshLambertMaterial({ color: pick([0x4a7a3d, 0x5a8c4a, 0x3d6b35]) });
+      for (let i = 0; i < 3; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(rand(0.28, 0.4), 8, 6), leafMat);
+        leaf.position.set(rand(-0.18, 0.18), 1.1 + rand(0, 0.3), rand(-0.18, 0.18));
+        leaf.scale.y = 0.8;
+        g.add(leaf);
+      }
+    }
+    return g;
   }
 
   let createdObstacles = [];
@@ -398,30 +574,7 @@
     createdObstacles = [];
     obstacleDefs.forEach(def => {
       const p = gridToWorld(def.gx, def.gz);
-      let mesh;
-      if (def.type === 'crate') {
-        const g = new THREE.Group();
-        const size = CELL * 0.62;
-        const box = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
-        box.position.y = size / 2;
-        box.rotation.y = rand(-0.3, 0.3);
-        g.add(box);
-        if (Math.random() < 0.5) {
-          const s2 = size * 0.7;
-          const box2 = new THREE.Mesh(new THREE.BoxGeometry(s2, s2, s2), crateMat);
-          box2.position.set(rand(-0.15, 0.15), size + s2 / 2, rand(-0.15, 0.15));
-          box2.rotation.y = rand(-0.5, 0.5);
-          g.add(box2);
-        }
-        mesh = g;
-      } else if (def.type === 'pillar') {
-        mesh = new THREE.Mesh(new THREE.CylinderGeometry(CELL * 0.3, CELL * 0.34, WALL_H, 12), pillarMat);
-        mesh.position.y = WALL_H / 2;
-      } else {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(CELL * 0.55, 1.9, CELL * 0.4), lockerMat);
-        mesh.position.y = 0.95;
-        mesh.rotation.y = pick([0, Math.PI / 2]) + rand(-0.15, 0.15);
-      }
+      const mesh = buildObstacleMesh(def.type);
       mesh.position.x = p.x;
       mesh.position.z = p.z;
       mesh.traverse(o => { o.castShadow = true; o.receiveShadow = true; });
@@ -430,11 +583,44 @@
     });
   }
 
+  // ================= items (almond water) =================
+  function spawnItemAt(cell) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.28, 10),
+      new THREE.MeshLambertMaterial({ color: 0xe8d08a, emissive: 0x6b5a20 }));
+    g.add(body);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.07, 8),
+      new THREE.MeshLambertMaterial({ color: 0x4a6b8c }));
+    cap.position.y = 0.17;
+    g.add(cap);
+    const p = gridToWorld(cell.gx, cell.gz);
+    g.position.set(p.x + rand(-0.5, 0.5), 0.3, p.z + rand(-0.5, 0.5));
+    worldGroup.add(g);
+    items.push({ mesh: g, x: g.position.x, z: g.position.z, gx: cell.gx, gz: cell.gz, phase: rand(0, Math.PI * 2) });
+  }
+
+  function spawnItems(count) {
+    for (let i = 0; i < count; i++) spawnItemAt(pick(floorCells));
+  }
+
+  function removeItem(item) {
+    const idx = items.indexOf(item);
+    if (idx === -1) return false;
+    items.splice(idx, 1);
+    worldGroup.remove(item.mesh);
+    disposeCreated(item.mesh);
+    return true;
+  }
+
   // ================= SD-proportion human NPCs =================
   const skinTones = [0xf2cfae, 0xe8b98d, 0xd9a06f, 0xf7dcc0];
   const shirtColors = [0xd9534f, 0x6fa8d6, 0x7fb98d, 0xcf9a4c, 0x9d7bb8, 0x5e6b8c, 0xc46a9a, 0x4f8f7a];
   const pantsColors = [0x4a4a5a, 0x6b5a44, 0x3d5a4f, 0x555555, 0x7a4a4a];
   const hairColors = [0x3a2e26, 0x6b4a2e, 0x1c1c22, 0x8c6f4f, 0xd9c56e, 0x8a4a3a];
+  const nameParts1 = ['カイ', 'ルカ', 'ミオ', 'ソラ', 'レン', 'ユイ', 'ハル', 'ニコ', 'アオ', 'リク', 'モモ', 'テト', 'ノア', 'ギン', 'ポコ', 'ザク'];
+  const nameParts2 = ['', '', 'タ', 'ネ', 'ミ', 'ト', 'ル', 'コ', 'ヤ', 'キ'];
+
+  function makeName() { return pick(nameParts1) + pick(nameParts2); }
 
   function makeNPC(hasGun) {
     const root = new THREE.Group();
@@ -507,18 +693,24 @@
     }
 
     root.userData = {
+      isNPC: true,
+      name: makeName(),
       state: 'idle', timer: rand(0.2, 1.5),
       path: [], facing: rand(0, Math.PI * 2),
       speed: rand(1.5, 2.0),
       hp: 100, maxHp: 100,
       weapon: hasGun ? 'gun' : 'melee',
       aggression: rand(0.25, 0.85),
+      friendly: rand(0.15, 0.85),
+      itemCount: 0,
       scanTimer: rand(0, 0.25),
       decisionCooldown: 0,
-      target: null, lastSeen: null, loseSightTimer: 0,
-      noticeTimer: 0, pendingThreat: null, pendingEngage: false,
+      target: null, lastSeen: null, loseSightTimer: 0, repathTimer: 0,
+      noticeTimer: 0, pendingThreat: null,
       shootTimer: 0, shotsLeft: 0,
       punchPhase: 0, punchTimer: 0,
+      waveTimer: 0, waveTarget: null, waveSignaled: false,
+      collectTarget: null,
       fleeTimer: 0, staggerTimer: 0, deadTimer: 0, fallT: 0, pursuitRolled: false,
       weakenTimer: 0, bobPhase: rand(0, Math.PI * 2), walkPhase: rand(0, Math.PI * 2),
       rig, legL, legR, armL, armR, gunMesh
@@ -526,12 +718,27 @@
     return root;
   }
 
+  // spread spawn points out so NPCs don't meet immediately
+  function pickSpawnCell(taken) {
+    let best = null, bestD = -1;
+    for (let i = 0; i < 10; i++) {
+      const c = pick(floorCells);
+      const dMin = taken.length
+        ? Math.min(...taken.map(e => Math.hypot(e.gx - c.gx, e.gz - c.gz)))
+        : 99;
+      if (dMin > bestD) { bestD = dMin; best = c; }
+    }
+    return best;
+  }
+
   function spawnNPCs(count, gunRatio) {
     npcs.forEach(n => { worldGroup.remove(n); disposeCreated(n); });
     npcs = [];
+    const taken = [];
     for (let i = 0; i < count; i++) {
       const n = makeNPC(Math.random() < gunRatio);
-      const cell = pick(floorCells);
+      const cell = pickSpawnCell(taken);
+      taken.push(cell);
       const p = gridToWorld(cell.gx, cell.gz);
       n.position.set(p.x, 0, p.z);
       n.rotation.y = n.userData.facing;
@@ -542,37 +749,45 @@
   }
 
   function buildWorld(count, gunRatio) {
+    deselectNPC();
     clearGroup(worldGroup);
     createdObstacles.forEach(o => disposeCreated(o));
     createdObstacles = [];
+    items.forEach(it => disposeCreated(it.mesh));
+    items = [];
     effects.forEach(e => { scene.remove(e.obj); disposeCreated(e.obj); });
     effects = [];
     buildEnvironment();
+    spawnItems(Math.min(ITEM_MAX, 10));
     spawnNPCs(count, gunRatio);
   }
 
   // ================= effects =================
-  const alertTex = makeCanvas(64, 64, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#e23b3b';
-    ctx.font = 'bold 52px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('!', w / 2, h / 2 + 2);
-  });
+  function makeTextSprite(text, color) {
+    return makeCanvas(64, 64, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, w / 2, h / 2 + 2);
+    });
+  }
+  const alertTex = makeTextSprite('!', '#e23b3b');
+  const heartTex = makeTextSprite('♡', '#e87ba0');
 
   function addEffect(obj, life, onUpdate) {
     scene.add(obj);
     effects.push({ obj, life, maxLife: life, onUpdate });
   }
 
-  function spawnAlert(npc) {
-    const mat = new THREE.SpriteMaterial({ map: alertTex, transparent: true, depthTest: false });
+  function spawnFloatSprite(npc, tex, scale) {
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
     const s = new THREE.Sprite(mat);
     s.position.copy(npc.position);
     s.position.y += 1.25;
-    s.scale.setScalar(0.45);
-    addEffect(s, 0.7, (e, p) => {
+    s.scale.setScalar(scale);
+    addEffect(s, 0.8, (e, p) => {
       e.obj.position.y += 0.4 * (1 / 60);
       e.obj.material.opacity = 1 - p * p;
     });
@@ -583,7 +798,6 @@
     const mat = new THREE.LineBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95 });
     const line = new THREE.Line(geo, mat);
     addEffect(line, 0.14, (e, p) => { e.obj.material.opacity = 0.95 * (1 - p); });
-    // muzzle flash
     const flash = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 1 }));
     flash.position.copy(from);
@@ -623,6 +837,7 @@
   const FOV_HALF = 1.15; // ~66deg each side
   const GUN_RANGE = 9;
   const PUNCH_RANGE = 0.95;
+  const LOW_HP = 35;
   let aggroMul = 1.0;
 
   function effAggro(d) { return clamp(d.aggression * aggroMul, 0.03, 0.97); }
@@ -631,13 +846,15 @@
     return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
   }
 
-  function canSee(a, b) {
-    const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
+  function inVision(a, x, z) {
+    const dx = x - a.position.x, dz = z - a.position.z;
     const dist = Math.hypot(dx, dz);
     if (dist > VISION_RANGE) return false;
     if (angleDiff(Math.atan2(dx, dz), a.userData.facing) > FOV_HALF) return false;
-    return hasLOS(a.position.x, a.position.z, b.position.x, b.position.z);
+    return hasLOS(a.position.x, a.position.z, x, z);
   }
+
+  function canSee(a, b) { return inVision(a, b.position.x, b.position.z); }
 
   function losTo(a, b) {
     return hasLOS(a.position.x, a.position.z, b.position.x, b.position.z);
@@ -660,24 +877,6 @@
     }
     d.target = null;
   }
-
-  function startEngage(npc, target) {
-    const d = npc.userData;
-    d.target = target;
-    d.lastSeen = { x: target.position.x, z: target.position.z };
-    d.loseSightTimer = 0;
-    d.pursuitRolled = false;
-    if (d.weapon === 'gun') {
-      d.state = 'shoot';
-      d.shotsLeft = Math.floor(rand(2, 6));
-      d.shootTimer = rand(0.25, 0.5);
-    } else {
-      d.state = 'chase';
-      d.repathTimer = 0;
-    }
-  }
-
-  const LOW_HP = 35;
 
   // Wounded NPCs run for a spot beside an obstacle, ideally out of the threat's sight.
   function findCoverCell(threatPos) {
@@ -707,14 +906,72 @@
     }
   }
 
+  function startEngage(npc, target) {
+    const d = npc.userData;
+    d.target = target;
+    d.lastSeen = { x: target.position.x, z: target.position.z };
+    d.loseSightTimer = 0;
+    d.pursuitRolled = false;
+    if (d.weapon === 'gun') {
+      d.state = 'shoot';
+      d.shotsLeft = Math.floor(rand(2, 6));
+      d.shootTimer = rand(0.25, 0.5);
+    } else {
+      d.state = 'chase';
+      d.repathTimer = 0;
+    }
+  }
+
+  function startWave(npc, target) {
+    const d = npc.userData;
+    d.state = 'wave';
+    d.waveTimer = 1.5;
+    d.waveTarget = target;
+    d.waveSignaled = false;
+    d.target = null;
+    d.path = [];
+    spawnFloatSprite(npc, heartTex, 0.45);
+  }
+
+  // Being waved at: wave back, ignore, or (if nasty) attack anyway.
+  function reactToWave(npc, waver) {
+    const d = npc.userData;
+    d.decisionCooldown = rand(3, 5);
+    if (d.hp < LOW_HP) { startHide(npc, waver.position); return; }
+    const r = Math.random();
+    if (r < effAggro(d) * 0.4) startEngage(npc, waver);
+    else if (r < effAggro(d) * 0.4 + Math.max(0.35, d.friendly)) startWave(npc, waver);
+    else { d.state = 'idle'; d.timer = rand(0.5, 1.2); }
+  }
+
   function reactToThreat(npc, threat, sawIt) {
-    // sawIt: noticed visually (calm decision). Otherwise: got hit (higher chance to fight back).
+    // sawIt: noticed visually (calm decision: fight / wave hello / avoid).
+    // Otherwise: got hit — no waving, higher chance to fight back.
     const d = npc.userData;
     d.decisionCooldown = rand(2.5, 4.5);
     if (d.hp < LOW_HP) { startHide(npc, threat.position); return; }
-    const engageP = sawIt ? effAggro(d) : clamp(effAggro(d) + 0.2, 0.05, 0.98);
-    if (Math.random() < engageP) startEngage(npc, threat);
+    if (!sawIt) {
+      const engageP = clamp(effAggro(d) + 0.2, 0.05, 0.98);
+      if (Math.random() < engageP) startEngage(npc, threat);
+      else startFlee(npc, threat.position);
+      return;
+    }
+    const wAtk = effAggro(d);
+    const wWave = clamp(d.friendly * (1 - wAtk), 0, 1);
+    const r = Math.random();
+    if (r < wAtk) startEngage(npc, threat);
+    else if (r < wAtk + wWave) startWave(npc, threat);
     else startFlee(npc, threat.position);
+  }
+
+  function dropItems(npc) {
+    const d = npc.userData;
+    if (d.itemCount <= 0) return;
+    const raw = worldToGrid(npc.position.x, npc.position.z);
+    const cell = nearestFloorCell(raw.gx, raw.gz);
+    const n = Math.min(d.itemCount, ITEM_MAX - items.length);
+    for (let i = 0; i < n; i++) spawnItemAt(cell);
+    d.itemCount = 0;
   }
 
   function takeDamage(npc, attacker, dmg) {
@@ -723,11 +980,13 @@
     d.hp -= dmg;
     spawnBurst(npc.position.clone().setY(npc.position.y + 0.6), 0xe24b4a);
     if (d.hp <= 0) {
+      d.hp = 0;
       d.state = 'dead';
       d.deadTimer = 2.8;
       d.fallT = 0;
       d.target = null;
       d.path = [];
+      dropItems(npc);
       return;
     }
     // small knockback away from attacker
@@ -830,19 +1089,44 @@
     if (d.weakenTimer > 0) d.weakenTimer -= dt;
     if (d.decisionCooldown > 0) d.decisionCooldown -= dt;
 
-    // --- vision scan (staggered) for calm states ---
-    if ((d.state === 'idle' || d.state === 'wander') && d.decisionCooldown <= 0) {
+    // --- perception (staggered scan) for calm states ---
+    const calm = d.state === 'idle' || d.state === 'wander' || d.state === 'collect';
+    if (calm) {
       d.scanTimer -= dt;
       if (d.scanTimer <= 0) {
         d.scanTimer = rand(0.12, 0.22);
-        for (const other of npcs) {
-          if (other === npc || other.userData.state === 'dead') continue;
-          if (canSee(npc, other)) {
-            d.state = 'notice';
-            d.noticeTimer = rand(0.25, 0.45);
-            d.pendingThreat = other;
-            spawnAlert(npc);
-            break;
+        let noticed = null;
+        if (d.decisionCooldown <= 0) {
+          for (const other of npcs) {
+            if (other === npc || other.userData.state === 'dead') continue;
+            if (canSee(npc, other)) { noticed = other; break; }
+          }
+        }
+        if (noticed) {
+          d.state = 'notice';
+          d.noticeTimer = rand(0.25, 0.45);
+          d.pendingThreat = noticed;
+          d.collectTarget = null;
+          spawnFloatSprite(npc, alertTex, 0.45);
+        } else if (d.state !== 'collect') {
+          // no one around: look for almond water
+          let best = null, bestDist = Infinity;
+          for (const it of items) {
+            const dist = Math.hypot(it.x - npc.position.x, it.z - npc.position.z);
+            if (dist < bestDist && dist < VISION_RANGE && inVision(npc, it.x, it.z)) {
+              best = it; bestDist = dist;
+            }
+          }
+          if (best) {
+            const raw = worldToGrid(npc.position.x, npc.position.z);
+            const from = nearestFloorCell(raw.gx, raw.gz);
+            const to = nearestFloorCell(best.gx, best.gz);
+            const path = findPath(from, to);
+            if (path) {
+              d.path = path.length > 1 ? path.slice(1).map(cell => gridToWorld(cell.gx, cell.gz)) : [];
+              d.state = 'collect';
+              d.collectTarget = best;
+            }
           }
         }
       }
@@ -861,6 +1145,36 @@
         else followPath(npc, d, dt, 1);
         break;
       }
+      case 'collect': {
+        const it = d.collectTarget;
+        if (!it || items.indexOf(it) === -1) {
+          // someone got there first
+          d.collectTarget = null;
+          d.state = 'idle';
+          d.timer = rand(0.3, 1.0);
+          break;
+        }
+        if (d.path.length > 0) {
+          followPath(npc, d, dt, 1.05);
+        } else {
+          const dist = Math.hypot(it.x - npc.position.x, it.z - npc.position.z);
+          if (dist > 0.35) {
+            // final approach within the cell
+            const nx = (it.x - npc.position.x) / dist, nz = (it.z - npc.position.z) / dist;
+            npc.position.x += nx * d.speed * dt;
+            npc.position.z += nz * d.speed * dt;
+            updateFacing(d, nx, nz, dt);
+          } else {
+            removeItem(it);
+            d.itemCount++;
+            d.collectTarget = null;
+            spawnBurst(npc.position.clone().setY(npc.position.y + 0.7), 0xffe08a);
+            d.state = 'idle';
+            d.timer = rand(0.4, 1.2);
+          }
+        }
+        break;
+      }
       case 'notice': {
         d.noticeTimer -= dt;
         if (d.pendingThreat) faceToward(npc, d.pendingThreat.position, dt);
@@ -869,6 +1183,26 @@
           d.pendingThreat = null;
           if (threat && threat.userData.state !== 'dead') reactToThreat(npc, threat, true);
           else { d.state = 'idle'; d.timer = rand(0.3, 1.0); }
+        }
+        break;
+      }
+      case 'wave': {
+        d.waveTimer -= dt;
+        if (d.waveTarget) faceToward(npc, d.waveTarget.position, dt);
+        if (!d.waveSignaled && d.waveTimer < 1.1) {
+          d.waveSignaled = true;
+          const wt = d.waveTarget;
+          if (wt && wt.userData.state !== 'dead') {
+            const ws = wt.userData.state;
+            const receptive = ws === 'idle' || ws === 'wander' || ws === 'collect' || ws === 'notice';
+            if (receptive && canSee(wt, npc)) reactToWave(wt, npc);
+          }
+        }
+        if (d.waveTimer <= 0) {
+          d.waveTarget = null;
+          d.decisionCooldown = rand(3, 5);
+          d.state = 'idle';
+          d.timer = rand(0.5, 1.5);
         }
         break;
       }
@@ -1029,7 +1363,8 @@
     // --- pose / animation ---
     npc.rotation.y = d.facing;
     const rig = d.rig;
-    const moving = d.state === 'wander' || d.state === 'chase' || d.state === 'flee' || d.state === 'seekCover';
+    const moving = d.state === 'wander' || d.state === 'chase' || d.state === 'flee' ||
+      d.state === 'seekCover' || d.state === 'collect';
     const speedMul = d.state === 'flee' ? 1.65 : d.state === 'seekCover' ? 1.55 : d.state === 'chase' ? 1.35 : 1;
 
     if (d.state === 'dead') {
@@ -1038,6 +1373,7 @@
       rig.scale.y = 1;
       d.legL.rotation.x = d.legR.rotation.x = 0;
       d.armL.rotation.x = d.armR.rotation.x = 0;
+      d.armR.rotation.z = 0;
       // once fallen, sink into the floor before removal
       npc.position.y = d.deadTimer < 1 ? -(1 - d.deadTimer) * 1.1 : 0;
       return;
@@ -1058,27 +1394,100 @@
       d.legL.rotation.x *= 1 - Math.min(1, dt * 10);
       d.legR.rotation.x *= 1 - Math.min(1, dt * 10);
       d.armL.rotation.x *= 1 - Math.min(1, dt * 10);
-      npc.position.y = Math.sin(t * 1.6 + d.bobPhase) * 0.012;
       d.armR.rotation.x *= 1 - Math.min(1, dt * 10);
+      npc.position.y = Math.sin(t * 1.6 + d.bobPhase) * 0.012;
     }
 
-    // combat arm poses override the walk swing
+    // combat / social arm poses override the walk swing
     if (d.state === 'shoot') {
       d.armR.rotation.x = -Math.PI / 2;
+      d.armR.rotation.z = 0;
     } else if (d.state === 'punch') {
       d.armR.rotation.x = d.punchPhase === 0
         ? 0.7 - (0.22 - d.punchTimer) / 0.22 * (0.7 + Math.PI / 2) // windup back, swing forward
         : -Math.PI / 2 * (d.punchTimer / 0.35);
+      d.armR.rotation.z = 0;
+    } else if (d.state === 'wave') {
+      d.armR.rotation.x = -2.7;
+      d.armR.rotation.z = Math.sin(t * 12) * 0.45;
     } else if (d.state === 'notice') {
       d.armL.rotation.x = d.armR.rotation.x = -0.3;
+      d.armR.rotation.z = 0;
+    } else {
+      d.armR.rotation.z = 0;
     }
   }
 
-  buildWorld(10, 0.5);
+  // ================= NPC inspector (click to select) =================
+  const raycaster = new THREE.Raycaster();
+  const pointerV = new THREE.Vector2();
+  let selectedNPC = null;
+  const selectRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.45, 0.035, 8, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffd75e, transparent: true, opacity: 0.9, depthTest: false })
+  );
+  selectRing.rotation.x = Math.PI / 2;
+  selectRing.visible = false;
+  scene.add(selectRing);
+
+  const npcPanel = document.getElementById('npcPanel');
+  const stateLabels = {
+    idle: 'たいき', wander: 'たんさく中', collect: 'アイテムへ移動中', notice: 'はっけん!',
+    wave: 'あいさつ中', chase: 'ついせき中', shoot: 'こうげき(銃)', punch: 'こうげき(なぐる)',
+    flee: 'とうそう中', stagger: 'ひるみ', seekCover: 'かくれる場所へ', hide: 'かいふく中',
+    dead: 'しぼう'
+  };
+
+  function selectNPC(npc) {
+    selectedNPC = npc;
+    document.getElementById('npcName').textContent = npc.userData.name;
+    npcPanel.hidden = false;
+    selectRing.visible = true;
+  }
+
+  function deselectNPC() {
+    selectedNPC = null;
+    npcPanel.hidden = true;
+    selectRing.visible = false;
+  }
+
+  document.getElementById('npcClose').addEventListener('click', deselectNPC);
+
+  function updateNPCPanel() {
+    if (!selectedNPC) return;
+    if (npcs.indexOf(selectedNPC) === -1) { deselectNPC(); return; }
+    const d = selectedNPC.userData;
+    selectRing.position.set(selectedNPC.position.x, 0.06, selectedNPC.position.z);
+    document.getElementById('npcHp').textContent = Math.ceil(d.hp) + ' / ' + d.maxHp;
+    const bar = document.getElementById('hpBar');
+    const ratio = clamp(d.hp / d.maxHp, 0, 1);
+    bar.style.width = (ratio * 100) + '%';
+    bar.style.background = ratio > 0.5 ? '#7fb98d' : ratio > 0.25 ? '#cf9a4c' : '#d9534f';
+    document.getElementById('npcState').textContent = stateLabels[d.state] || d.state;
+    document.getElementById('npcWeapon').textContent = d.weapon === 'gun' ? '銃' : 'こぶし';
+    document.getElementById('npcItems').textContent = d.itemCount + ' 本';
+    document.getElementById('npcAggro').textContent = Math.round(effAggro(d) * 100);
+    document.getElementById('npcFriendly').textContent = Math.round(d.friendly * 100);
+    document.getElementById('npcSpeed').textContent = d.speed.toFixed(1);
+  }
+
+  function handlePick(e) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointerV.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerV.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointerV, camera);
+    const hits = raycaster.intersectObjects(npcs, true);
+    if (hits.length > 0) {
+      let obj = hits[0].object;
+      while (obj && !(obj.userData && obj.userData.isNPC)) obj = obj.parent;
+      if (obj) { selectNPC(obj); return; }
+    }
+    deselectNPC();
+  }
 
   // ================= camera =================
-  let camAngle = 0.6, camRadius = 27, camHeight = 23;
-  let autoSpin = true, dragging = false, lastX = 0;
+  let camAngle = 0.6, camRadius = 34, camHeight = 28;
+  let autoSpin = true, dragging = false, moved = 0, lastX = 0, downX = 0, downY = 0;
 
   function updateCamera() {
     camera.position.set(Math.cos(camAngle) * camRadius, camHeight, Math.sin(camAngle) * camRadius);
@@ -1087,20 +1496,27 @@
   updateCamera();
 
   renderer.domElement.style.touchAction = 'none';
-  renderer.domElement.addEventListener('pointerdown', e => { dragging = true; autoSpin = false; lastX = e.clientX; });
+  renderer.domElement.addEventListener('pointerdown', e => {
+    dragging = true; moved = 0; lastX = e.clientX; downX = e.clientX; downY = e.clientY;
+  });
   window.addEventListener('pointermove', e => {
     if (!dragging) return;
     const dx = e.clientX - lastX; lastX = e.clientX;
+    moved += Math.abs(dx);
+    if (moved > 6) autoSpin = false;
     camAngle -= dx * 0.006;
   });
-  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointerup', e => {
+    if (dragging && Math.hypot(e.clientX - downX, e.clientY - downY) < 6) handlePick(e);
+    dragging = false;
+  });
   renderer.domElement.addEventListener('wheel', e => {
     e.preventDefault();
-    camRadius = clamp(camRadius + e.deltaY * 0.02, 14, 44);
+    camRadius = clamp(camRadius + e.deltaY * 0.02, 15, 58);
   }, { passive: false });
 
   // ================= UI wiring =================
-  let desiredCount = 10, desiredGunRatio = 0.5;
+  let desiredCount = 12, desiredGunRatio = 0.5;
   function bindSlider(id, valId, onChange) {
     const el = document.getElementById(id), valEl = document.getElementById(valId);
     el.addEventListener('input', () => { valEl.textContent = el.value; onChange(Number(el.value)); });
@@ -1109,6 +1525,8 @@
   bindSlider('aggroSlider', 'aggroVal', v => { aggroMul = v / 50; });
   bindSlider('gunSlider', 'gunVal', v => { desiredGunRatio = v / 100; });
   document.getElementById('regen').addEventListener('click', () => buildWorld(desiredCount, desiredGunRatio));
+
+  buildWorld(12, 0.5);
 
   // ================= main loop =================
   const clock = new THREE.Clock();
@@ -1132,12 +1550,30 @@
       }
     }
 
+    // bob the almond water bottles; slowly restock the map
+    items.forEach(it => {
+      it.mesh.position.y = 0.3 + Math.sin(t * 2 + it.phase) * 0.05;
+      it.mesh.rotation.y += dt * 1.2;
+    });
+    itemRespawnTimer -= dt;
+    if (itemRespawnTimer <= 0) {
+      itemRespawnTimer = rand(10, 18);
+      if (items.length < ITEM_MAX) spawnItemAt(pick(floorCells));
+    }
+
+    updateNPCPanel();
     renderer.render(scene, camera);
   }
   animate();
 
-  // debug hook for automated tests
-  window.__npcCount = () => npcs.length;
+  // debug hooks for automated tests
+  window.__sim = {
+    npcCount: () => npcs.length,
+    itemCount: () => items.length,
+    carriedTotal: () => npcs.reduce((s, n) => s + n.userData.itemCount, 0),
+    selectFirst: () => { if (npcs.length) selectNPC(npcs[0]); }
+  };
+  window.__npcCount = window.__sim.npcCount;
 })();
 </script>
 </body>
