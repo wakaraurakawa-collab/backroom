@@ -31,44 +31,40 @@
   }
   button:hover:not(:disabled) { border-color: var(--glow-dim); color: var(--glow); }
   button:disabled { opacity: 0.35; cursor: default; }
-
   .screen { position: fixed; inset: 0; overflow: auto; }
   [hidden] { display: none !important; }
 
   /* ---------- title ---------- */
-  #screen-title { display: flex; flex-direction: column; align-items: center; padding: 40px 16px; gap: 22px; }
+  #screen-title { display: flex; flex-direction: column; align-items: center; padding: 28px 16px; gap: 18px; }
   #screen-title h1 {
     font-size: 34px; letter-spacing: 0.35em; color: var(--glow);
-    text-shadow: 0 0 18px rgba(127, 216, 176, 0.35);
-    font-weight: 500;
+    text-shadow: 0 0 18px rgba(127, 216, 176, 0.35); font-weight: 500;
   }
-  #screen-title .sub { color: var(--dim); letter-spacing: 0.2em; font-size: 12px; }
-  .char-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
+  #screen-title .sub { color: var(--dim); letter-spacing: 0.2em; font-size: 12px; text-align: center; line-height: 1.9; }
+  .char-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 1080px; }
   .char-card {
-    width: 210px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 10px; padding: 14px; cursor: pointer;
+    width: 225px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; cursor: pointer;
     transition: border-color 0.15s, box-shadow 0.15s;
+    display: flex; flex-direction: column; gap: 6px;
   }
   .char-card:hover { border-color: var(--glow-dim); }
-  .char-card.sel {
-    border-color: var(--glow);
-    box-shadow: 0 0 16px rgba(127, 216, 176, 0.22);
-  }
-  .char-card h3 { font-size: 17px; color: var(--glow); margin-bottom: 2px; font-weight: 500; }
-  .char-card .cdesc { color: var(--dim); font-size: 12px; min-height: 34px; margin-bottom: 8px; }
-  .char-card .cstats { font-size: 12px; line-height: 1.7; }
-  .char-card .cab { margin-top: 6px; font-size: 11px; color: var(--warn); }
+  .char-card.sel { border-color: var(--glow); box-shadow: 0 0 16px rgba(127, 216, 176, 0.22); }
+  .char-card .cportrait { width: 100%; border-radius: 6px; overflow: hidden; background: #050807; }
+  .char-card .cportrait svg { display: block; width: 100%; height: auto; }
+  .char-card h3 { font-size: 16px; color: var(--glow); font-weight: 500; }
+  .char-card .cdesc { color: var(--dim); font-size: 11px; min-height: 30px; }
+  .char-card .cstats { font-size: 12px; line-height: 1.6; }
+  .char-card .cab { font-size: 11px; color: var(--warn); }
   .diff-row { display: flex; gap: 10px; }
   .diff-row button.sel { border-color: var(--glow); color: var(--glow); }
   #startBtn { font-size: 16px; padding: 12px 46px; letter-spacing: 0.3em; }
 
-  /* ---------- game ---------- */
+  /* ---------- game layout ---------- */
   #screen-game { display: flex; }
   #board-wrap {
     flex: 1; position: relative; overflow: hidden; cursor: grab;
-    background:
-      radial-gradient(ellipse at 50% 40%, rgba(127,216,176,0.05), transparent 60%),
-      var(--bg);
+    background: radial-gradient(ellipse at 50% 40%, rgba(127,216,176,0.05), transparent 60%), var(--bg);
   }
   #board-wrap:active { cursor: grabbing; }
   #board { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -76,30 +72,17 @@
   .room {
     position: absolute; width: 120px; height: 120px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 6px; user-select: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    user-select: none; overflow: hidden;
   }
-  .room .rname { font-size: 14px; letter-spacing: 0.15em; }
-  .room .rmark { font-size: 22px; color: var(--glow-dim); }
+  .room .rart { position: absolute; inset: 0; opacity: 0.8; }
+  .room .rart svg { width: 100%; height: 100%; }
+  .room .rname {
+    position: relative; font-size: 13px; letter-spacing: 0.15em; padding: 3px 0 6px;
+    text-shadow: 0 0 6px #000;
+  }
   .room.cur { border-color: var(--glow); box-shadow: 0 0 18px rgba(127, 216, 176, 0.25); }
-  .room.visited-old { opacity: 0.75; }
   .room.warped { border-color: #4a3d6b; }
-  .room.warped .rmark { color: #9d7bd8; }
-  .door { position: absolute; background: var(--glow-dim); border-radius: 2px; }
-  .door.N { top: -2px; left: 46px; width: 28px; height: 4px; }
-  .door.S { bottom: -2px; left: 46px; width: 28px; height: 4px; }
-  .door.W { left: -2px; top: 46px; width: 4px; height: 28px; }
-  .door.E { right: -2px; top: 46px; width: 4px; height: 28px; }
-  .room.cur .door { background: var(--glow); }
-
-  .ghost {
-    position: absolute; width: 120px; height: 120px;
-    border: 1px dashed var(--glow-dim); border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--glow-dim); font-size: 12px; letter-spacing: 0.2em;
-    cursor: pointer; background: rgba(127, 216, 176, 0.03);
-  }
-  .ghost:hover { border-color: var(--glow); color: var(--glow); }
 
   #marker {
     position: absolute; width: 30px; height: 30px; border-radius: 50%;
@@ -107,49 +90,83 @@
     box-shadow: 0 0 14px rgba(127, 216, 176, 0.8);
     display: flex; align-items: center; justify-content: center;
     color: #0a221a; font-size: 13px; font-weight: 700;
-    pointer-events: none; transition: left 0.35s ease, top 0.35s ease;
-    z-index: 5;
+    pointer-events: none; transition: left 0.35s ease, top 0.35s ease; z-index: 5;
   }
+
+  /* ---------- offers (three cards) ---------- */
+  #offers {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; gap: 12px; z-index: 10;
+  }
+  .offer {
+    width: 150px; background: rgba(13, 21, 16, 0.94); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px; cursor: pointer; text-align: center;
+    display: flex; flex-direction: column; gap: 5px;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .offer:hover:not(.blocked) { border-color: var(--glow); transform: translateY(-4px); }
+  .offer .odir { font-size: 11px; color: var(--dim); letter-spacing: 0.3em; }
+  .offer .oart { height: 74px; border-radius: 6px; overflow: hidden; background: #050807; }
+  .offer .oart svg { width: 100%; height: 100%; }
+  .offer .oname { font-size: 14px; letter-spacing: 0.1em; }
+  .offer .ohint { font-size: 11px; min-height: 15px; color: var(--warn); }
+  .offer.blocked { cursor: default; opacity: 0.6; }
+  .offer.blocked .oname { color: var(--danger); font-size: 12px; }
 
   /* ---------- side panel ---------- */
   #side {
-    width: 300px; background: var(--panel); border-left: 1px solid var(--line);
-    display: flex; flex-direction: column; padding: 14px; gap: 10px;
-    overflow-y: auto;
+    width: 310px; background: var(--panel); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column; padding: 12px; gap: 9px; overflow-y: auto;
   }
-  #side h2 { font-size: 16px; color: var(--glow); font-weight: 500; letter-spacing: 0.1em; }
+  #pHead { display: flex; gap: 10px; align-items: center; }
+  #pPortrait { width: 62px; border-radius: 6px; overflow: hidden; background: #050807; flex: none; }
+  #pPortrait svg { display: block; width: 100%; height: auto; }
+  #side h2 { font-size: 15px; color: var(--glow); font-weight: 500; letter-spacing: 0.08em; }
   .pips { letter-spacing: 3px; font-size: 15px; }
   .pips .on { color: var(--glow); }
   .pips.hp .on { color: var(--danger); }
   .pips .off { color: #2a382f; }
-  .srow { display: flex; justify-content: space-between; font-size: 13px; }
+  .srow { display: flex; justify-content: space-between; font-size: 13px; align-items: center; }
   .srow .lbl { color: var(--dim); }
   #phaseBar { height: 6px; background: #1a241e; border-radius: 999px; overflow: hidden; }
   #phaseFill { height: 100%; background: linear-gradient(90deg, var(--glow-dim), var(--glow)); width: 0%; }
   #phaseName { font-size: 12px; color: var(--warn); letter-spacing: 0.2em; }
+  #followLine { font-size: 11px; color: var(--danger); min-height: 14px; }
+
+  #goalBox { display: flex; gap: 6px; }
+  .goal {
+    flex: 1; text-align: center; font-size: 11px; padding: 5px 2px;
+    border: 1px solid var(--line); border-radius: 6px; color: var(--dim);
+  }
+  .goal.done { color: var(--glow); border-color: var(--glow-dim); }
 
   #itemBox { display: flex; flex-direction: column; gap: 5px; }
   .item {
     display: flex; justify-content: space-between; align-items: center;
     background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
-    padding: 5px 8px; font-size: 12px;
+    padding: 5px 8px; font-size: 12px; gap: 6px;
   }
   .item .idesc { color: var(--dim); font-size: 11px; }
-  .item button { padding: 2px 8px; font-size: 11px; }
+  .item button { padding: 2px 8px; font-size: 11px; flex: none; }
 
-  #actionBox { display: flex; flex-direction: column; gap: 6px; }
-  #actionBox .arow { display: flex; gap: 6px; }
-  #actionBox .arow button { flex: 1; }
+  #actionBox { display: flex; gap: 6px; }
+  #actionBox button { flex: 1; }
 
-  #encBox {
+  #encBox, #stuBox {
     border: 1px solid #4a3030; background: #170f0f; border-radius: 8px; padding: 10px;
     display: flex; flex-direction: column; gap: 8px;
   }
+  #stuBox { border-color: #33424a; background: #0e1416; }
   #encBox .ename { color: var(--danger); font-size: 15px; letter-spacing: 0.15em; }
-  #encBox .eline { color: var(--dim); font-size: 12px; }
+  #encBox .eline, #stuBox .sline { color: var(--dim); font-size: 12px; line-height: 1.7; }
+  #stuBox .stop { display: flex; gap: 10px; }
+  #stuBox .sportrait { width: 74px; flex: none; border-radius: 6px; overflow: hidden; background: #050807; }
+  #stuBox .sportrait svg { display: block; width: 100%; height: auto; }
+  #stuBox .sname { font-size: 14px; color: var(--glow); }
+  #stuBox .sinfo { font-size: 11px; color: var(--dim); line-height: 1.8; }
 
   #log {
-    flex: 1; min-height: 120px; overflow-y: auto; font-size: 12px; line-height: 1.75;
+    flex: 1; min-height: 110px; overflow-y: auto; font-size: 12px; line-height: 1.75;
     border-top: 1px solid var(--line); padding-top: 8px; color: var(--dim);
   }
   #log .l-good { color: var(--glow); }
@@ -170,32 +187,44 @@
 </head>
 <body>
 
-<!-- ======== title ======== -->
 <div class="screen" id="screen-title">
   <h1>夜の学校</h1>
-  <div class="sub">夕方以降、別世界の教室につながる廊下が現れる。</div>
+  <div class="sub">夕方以降、別世界の教室につながる廊下が現れる。<br>
+    帰り支度——上履き・かばん・昇降口の鍵——を揃えて、夜明けを迎えること。</div>
   <div class="char-row" id="charRow"></div>
   <div class="diff-row" id="diffRow"></div>
   <button id="startBtn">入 校</button>
-  <div class="sub">夜明けまで生き延びれば、帰れる。たぶん。</div>
+  <div class="sub">うしろから、なにか付いてきている。来た道には戻れない。</div>
 </div>
 
-<!-- ======== game ======== -->
 <div class="screen" id="screen-game" hidden>
-  <div id="board-wrap"><div id="board"></div></div>
+  <div id="board-wrap">
+    <div id="board"></div>
+    <div id="offers"></div>
+  </div>
   <aside id="side">
-    <h2 id="pName"></h2>
-    <div class="srow"><span class="lbl">体力</span><span class="pips hp" id="hpPips"></span></div>
-    <div class="srow"><span class="lbl">気力</span><span class="pips" id="mpPips"></span></div>
+    <div id="pHead">
+      <div id="pPortrait"></div>
+      <div style="flex:1">
+        <h2 id="pName"></h2>
+        <div class="srow"><span class="lbl">体力</span><span class="pips hp" id="hpPips"></span></div>
+        <div class="srow"><span class="lbl">正気度</span><span class="pips" id="mpPips"></span></div>
+      </div>
+    </div>
     <div class="srow"><span class="lbl">腕力 / 敏捷 / 直感</span><span id="statLine"></span></div>
     <div class="srow"><span class="lbl">現在地</span><span id="hereName"></span></div>
     <div>
       <div class="srow"><span class="lbl">夜明けまで</span><span id="turnLine"></span></div>
       <div id="phaseBar"><div id="phaseFill"></div></div>
-      <div id="phaseName"></div>
+      <div class="srow"><span id="phaseName"></span><span id="followLine"></span></div>
+    </div>
+    <div>
+      <div class="srow"><span class="lbl">帰り支度</span></div>
+      <div id="goalBox"></div>
     </div>
     <div id="actionBox"></div>
     <div id="encBox" hidden></div>
+    <div id="stuBox" hidden></div>
     <div>
       <div class="srow"><span class="lbl">持ち物 (最大4)</span></div>
       <div id="itemBox"></div>
@@ -204,7 +233,6 @@
   </aside>
 </div>
 
-<!-- ======== result ======== -->
 <div class="screen" id="screen-result" hidden>
   <div id="resultTitle"></div>
   <div id="resultBody"></div>
@@ -217,88 +245,228 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const rand = (a, b) => Math.random() * (b - a) + a;
-  const ri = (a, b) => Math.floor(rand(a, b + 1)); // inclusive int
+  const ri = (a, b) => Math.floor(rand(a, b + 1));
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function weightedPick(list, wOf) {
+    let total = 0;
+    for (const it of list) total += wOf(it);
+    let r = Math.random() * total;
+    for (const it of list) { r -= wOf(it); if (r < 0) return it; }
+    return list[list.length - 1];
+  }
+
+  // ================= placeholder art (SVG) =================
+  // 厚塗り・緑の影・フラッシュ白飛び風の"仮"アセット。本番絵に差し替え可能なスロット。
+  const SVG_DEFS = `
+    <defs>
+      <radialGradient id="flash" cx="50%" cy="30%" r="75%">
+        <stop offset="0%" stop-color="#f2fff8" stop-opacity="0.34"/>
+        <stop offset="45%" stop-color="#bfe8d4" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#000" stop-opacity="0.55"/>
+      </radialGradient>
+      <filter id="glow"><feGaussianBlur stdDeviation="1.6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>`;
+
+  const HAIR_BACK = [
+    'M34,44 Q60,14 86,44 L90,128 L72,112 L60,122 L48,112 L30,128 Z',            // 長いストレート
+    'M34,46 Q60,16 86,46 L88,88 Q60,102 32,88 Z',                                 // ボブ
+    'M36,44 Q60,20 84,44 L86,70 Q60,84 34,70 Z',                                  // ショート
+    'M34,46 Q60,16 86,46 L88,84 Q60,98 32,84 Z M28,60 L20,118 L34,110 Z M92,60 L100,118 L86,110 Z', // ツイン
+    'M36,44 Q60,18 84,44 L86,74 Q60,88 34,74 Z M78,54 Q98,72 88,120 L78,112 Z',   // ポニーテール
+    'M34,46 Q60,16 86,46 L90,92 L80,84 L84,104 L72,92 L74,110 L60,96 L46,110 L48,92 L36,104 L40,84 L30,92 Z', // ウルフ
+  ];
+  const HAIR_COLORS = ['#191d1b', '#241c16', '#3a2b1c', '#4a3b23', '#5c5140', '#2a2430'];
+
+  function portraitSVG(p) {
+    // p: { hair: 0-5, hairColor, blonde? } — バストアップ、瞳が薄く発光
+    const hc = p.hairColor;
+    return `<svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
+      ${SVG_DEFS}
+      <rect width="120" height="150" fill="#0a120d"/>
+      <path d="${HAIR_BACK[p.hair]}" fill="${hc}"/>
+      <path d="M30,150 L37,106 Q60,94 83,106 L90,150 Z" fill="#131a16"/>
+      <path d="M42,104 L60,120 L78,104 L74,100 L60,110 L46,100 Z" fill="#e8f2ea" opacity="0.85"/>
+      <path d="M52,108 L68,108 L60,130 Z" fill="#2e5c48"/>
+      <ellipse cx="60" cy="62" rx="20" ry="23" fill="#e4d4c4"/>
+      <ellipse cx="60" cy="62" rx="20" ry="23" fill="#1d3328" opacity="0.22"/>
+      <path d="M40,54 Q60,32 80,54 Q72,50 60,50 Q48,50 40,54 Z" fill="${hc}"/>
+      <path d="M40,54 Q48,44 60,46 Q52,56 48,62 Z" fill="${hc}" opacity="0.9"/>
+      <path d="M80,54 Q72,44 60,46 Q68,56 72,62 Z" fill="${hc}" opacity="0.9"/>
+      <g filter="url(#glow)">
+        <ellipse cx="52" cy="66" rx="3.4" ry="4.6" fill="#9fe8c8"/>
+        <ellipse cx="68" cy="66" rx="3.4" ry="4.6" fill="#9fe8c8"/>
+      </g>
+      <circle cx="52.8" cy="64.6" r="1" fill="#fff"/>
+      <circle cx="68.8" cy="64.6" r="1" fill="#fff"/>
+      <rect width="120" height="150" fill="url(#flash)"/>
+    </svg>`;
+  }
+
+  const ROOM_ART = {
+    genkan:  '<rect x="26" y="14" width="68" height="52" rx="2"/><line x1="26" y1="31" x2="94" y2="31"/><line x1="26" y1="48" x2="94" y2="48"/><line x1="49" y1="14" x2="49" y2="66"/><line x1="72" y1="14" x2="72" y2="66"/>',
+    roka:    '<line x1="8" y1="72" x2="60" y2="26"/><line x1="112" y1="72" x2="60" y2="26"/><rect x="30" y="38" width="10" height="18"/><rect x="80" y="38" width="10" height="18"/><line x1="8" y1="30" x2="42" y2="28"/><line x1="112" y1="30" x2="78" y2="28"/>',
+    kyou:    '<rect x="14" y="42" width="20" height="12"/><rect x="50" y="42" width="20" height="12"/><rect x="86" y="42" width="20" height="12"/><line x1="18" y1="54" x2="18" y2="66"/><line x1="30" y1="54" x2="30" y2="66"/><line x1="54" y1="54" x2="54" y2="66"/><line x1="66" y1="54" x2="66" y2="66"/><line x1="90" y1="54" x2="90" y2="66"/><line x1="102" y1="54" x2="102" y2="66"/><rect x="24" y="12" width="72" height="18"/>',
+    kaidan:  '<polyline points="16,68 34,68 34,54 52,54 52,40 70,40 70,26 88,26 88,12 104,12"/>',
+    watari:  '<rect x="14" y="24" width="22" height="30"/><rect x="49" y="24" width="22" height="30"/><rect x="84" y="24" width="22" height="30"/><circle cx="60" cy="14" r="6"/>',
+    tosho:   '<rect x="20" y="12" width="80" height="56"/><line x1="20" y1="30" x2="100" y2="30"/><line x1="20" y1="48" x2="100" y2="48"/><line x1="34" y1="12" x2="34" y2="68"/><line x1="56" y1="12" x2="56" y2="68"/><line x1="78" y1="12" x2="78" y2="68"/>',
+    hoken:   '<rect x="20" y="40" width="56" height="20"/><rect x="24" y="30" width="16" height="10"/><line x1="94" y1="18" x2="94" y2="38"/><line x1="84" y1="28" x2="104" y2="28"/>',
+    kateika: '<path d="M34,44 Q34,60 50,60 L70,60 Q86,60 86,44 Z"/><line x1="30" y1="44" x2="90" y2="44"/><path d="M50,36 Q46,28 52,20"/><path d="M66,36 Q62,28 68,20"/>',
+    rika:    '<path d="M54,14 L54,34 L38,62 Q36,68 44,68 L76,68 Q84,68 82,62 L66,34 L66,14"/><line x1="48" y1="14" x2="72" y2="14"/><circle cx="56" cy="56" r="3"/><circle cx="66" cy="50" r="2"/>',
+    ongaku:  '<rect x="20" y="40" width="80" height="24"/><line x1="32" y1="40" x2="32" y2="58"/><line x1="44" y1="40" x2="44" y2="58"/><line x1="56" y1="40" x2="56" y2="58"/><line x1="68" y1="40" x2="68" y2="58"/><line x1="80" y1="40" x2="80" y2="58"/><line x1="92" y1="40" x2="92" y2="58"/><circle cx="84" cy="22" r="5"/><line x1="89" y1="22" x2="89" y2="6"/>',
+    taiiku:  '<circle cx="60" cy="40" r="26"/><line x1="60" y1="14" x2="60" y2="66"/><circle cx="88" cy="58" r="8"/>',
+    toilet:  '<rect x="30" y="14" width="26" height="34"/><ellipse cx="80" cy="52" rx="16" ry="8"/><line x1="80" y1="30" x2="80" y2="44"/><path d="M36,20 L50,42" opacity="0.5"/>',
+    bushitsu:'<rect x="18" y="16" width="26" height="50"/><rect x="52" y="16" width="26" height="50"/><line x1="31" y1="30" x2="31" y2="40"/><line x1="65" y1="30" x2="65" y2="40"/><line x1="92" y1="66" x2="104" y2="18"/>',
+    shokuin: '<rect x="16" y="36" width="42" height="24"/><rect x="62" y="36" width="42" height="24"/><rect x="22" y="28" width="18" height="8"/><circle cx="88" cy="20" r="6"/><line x1="88" y1="26" x2="88" y2="34"/><line x1="88" y1="30" x2="94" y2="30"/>',
+    okujou:  '<line x1="12" y1="66" x2="108" y2="66"/><line x1="20" y1="46" x2="20" y2="66"/><line x1="36" y1="46" x2="36" y2="66"/><line x1="52" y1="46" x2="52" y2="66"/><line x1="68" y1="46" x2="68" y2="66"/><line x1="84" y1="46" x2="84" y2="66"/><line x1="100" y1="46" x2="100" y2="66"/><line x1="12" y1="46" x2="108" y2="46"/><circle cx="86" cy="20" r="10"/>',
+    yuganda: '<rect x="30" y="18" width="60" height="44" transform="skewX(-8)"/><rect x="44" y="28" width="34" height="24" transform="skewX(6)"/><line x1="20" y1="70" x2="100" y2="64"/>',
+  };
+
+  function roomArtSVG(key, warped) {
+    const stroke = warped ? '#a892d8' : '#a8dcc0';
+    return `<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+      ${SVG_DEFS}
+      <rect width="120" height="80" fill="#0a120d"/>
+      <g stroke="${stroke}" stroke-width="2" fill="none" opacity="0.75" filter="url(#glow)">${ROOM_ART[key] || ''}</g>
+      <rect width="120" height="80" fill="url(#flash)"/>
+    </svg>`;
+  }
 
   // ================= data =================
   const CHARS = [
     { id: 'shino', name: '真城 詩乃', desc: '無口な優等生。長い黒髪。よく視ている。',
-      hp: 4, mp: 6, str: 0, agi: 1, int: 3,
-      ability: 'observe', abilityText: '固有: 探索でものを見つけやすい' },
+      hp: 4, mp: 6, str: 0, agi: 1, int: 3, ability: 'observe',
+      abilityText: '固有: 探索でものを見つけやすい', look: { hair: 0, hairColor: '#191d1b' } },
     { id: 'hina', name: '朝倉 ひな', desc: '快活なムードメーカー。陸上部。足だけは自信がある。',
-      hp: 5, mp: 4, str: 1, agi: 3, int: 1,
-      ability: 'runner', abilityText: '固有: 逃走に成功すると気力+1' },
+      hp: 5, mp: 4, str: 1, agi: 3, int: 1, ability: 'runner',
+      abilityText: '固有: 逃走に成功すると正気度+1', look: { hair: 1, hairColor: '#4a3b23' } },
     { id: 'ruka', name: '白瀬 ルカ', desc: '眠そうな転校生。写真部。夜のほうが調子がいい。',
-      hp: 4, mp: 5, str: 0, agi: 2, int: 2,
-      ability: 'nightowl', abilityText: '固有: 丑三つ時の気力減少を受けない' },
+      hp: 4, mp: 5, str: 0, agi: 2, int: 2, ability: 'nightowl',
+      abilityText: '固有: 丑三つ時の正気度減少を受けない', look: { hair: 2, hairColor: '#5c5140' } },
     { id: 'mio', name: '黒峰 澪', desc: '不良っぽく見える世話焼き。手芸部。腕っぷしが強い。',
-      hp: 6, mp: 3, str: 3, agi: 1, int: 1,
-      ability: 'fighter', abilityText: '固有: 戦って勝つと気力+1' },
+      hp: 6, mp: 3, str: 3, agi: 1, int: 1, ability: 'fighter',
+      abilityText: '固有: 戦って勝つと正気度+1', look: { hair: 5, hairColor: '#241c16' } },
   ];
 
   const DIFFS = [
-    { name: '短い夜', turns: 12, encMul: 1.0 },
-    { name: '長い夜', turns: 18, encMul: 1.0 },
-    { name: '明けない夜', turns: 24, encMul: 1.25 },
+    { name: '短い夜', turns: 14, encMul: 1.0 },
+    { name: '長い夜', turns: 20, encMul: 1.0 },
+    { name: '明けない夜', turns: 26, encMul: 1.25 },
   ];
 
-  // eventW: relative weights {none, item, enemy, student, hazard}
   const ROOMS = [
-    { key: 'roka',    name: '廊下',     mark: '〓', w: 20, exMin: 2, exMax: 3, eventW: { none: 50, item: 5,  enemy: 18, student: 15, hazard: 12 } },
-    { key: 'kyou',    name: '教室',     mark: '机', w: 18, exMin: 1, exMax: 2, eventW: { none: 35, item: 25, enemy: 18, student: 12, hazard: 10 } },
-    { key: 'kaidan',  name: '階段',     mark: '段', w: 8,  exMin: 2, exMax: 3, eventW: { none: 45, item: 5,  enemy: 18, student: 12, hazard: 20 } },
-    { key: 'watari',  name: '渡り廊下', mark: '橋', w: 6,  exMin: 2, exMax: 2, eventW: { none: 60, item: 5,  enemy: 15, student: 10, hazard: 10 } },
-    { key: 'tosho',   name: '図書室',   mark: '書', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 35, enemy: 10, student: 15, hazard: 10 } },
-    { key: 'hoken',   name: '保健室',   mark: '十', w: 4,  exMin: 1, exMax: 2, eventW: { none: 55, item: 30, enemy: 5,  student: 8,  hazard: 2 } },
-    { key: 'kateika', name: '家庭科室', mark: '鍋', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 40, enemy: 15, student: 8,  hazard: 7 } },
-    { key: 'rika',    name: '理科室',   mark: '瓶', w: 5,  exMin: 1, exMax: 2, eventW: { none: 22, item: 18, enemy: 35, student: 5,  hazard: 20 } },
-    { key: 'ongaku',  name: '音楽室',   mark: '♪', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 12, enemy: 30, student: 10, hazard: 18 } },
-    { key: 'taiiku',  name: '体育館',   mark: '球', w: 4,  exMin: 2, exMax: 3, eventW: { none: 30, item: 15, enemy: 30, student: 10, hazard: 15 } },
-    { key: 'yuganda', name: '歪んだ教室', mark: '∵', w: 6, exMin: 1, exMax: 3, eventW: { none: 15, item: 22, enemy: 40, student: 8,  hazard: 15 }, warped: true },
+    { key: 'roka',    name: '廊下',     w: 18, eventW: { none: 52, item: 6,  enemy: 15, student: 15, hazard: 12 } },
+    { key: 'kyou',    name: '教室',     w: 16, eventW: { none: 33, item: 27, enemy: 18, student: 12, hazard: 10 } },
+    { key: 'kaidan',  name: '階段',     w: 7,  eventW: { none: 42, item: 5,  enemy: 16, student: 12, hazard: 25 } },
+    { key: 'watari',  name: '渡り廊下', w: 5,  eventW: { none: 62, item: 5,  enemy: 13, student: 10, hazard: 10 } },
+    { key: 'tosho',   name: '図書室',   w: 5,  eventW: { none: 30, item: 35, enemy: 10, student: 15, hazard: 10 } },
+    { key: 'hoken',   name: '保健室',   w: 4,  eventW: { none: 55, item: 30, enemy: 5,  student: 8,  hazard: 2 } },
+    { key: 'kateika', name: '家庭科室', w: 5,  eventW: { none: 28, item: 42, enemy: 15, student: 8,  hazard: 7 } },
+    { key: 'rika',    name: '理科室',   w: 5,  eventW: { none: 20, item: 20, enemy: 35, student: 5,  hazard: 20 } },
+    { key: 'ongaku',  name: '音楽室',   w: 5,  eventW: { none: 28, item: 14, enemy: 32, student: 10, hazard: 16 } },
+    { key: 'taiiku',  name: '体育館',   w: 4,  eventW: { none: 28, item: 17, enemy: 30, student: 10, hazard: 15 } },
+    { key: 'toilet',  name: 'トイレ',   w: 6,  eventW: { none: 28, item: 12, enemy: 25, student: 25, hazard: 10 } },
+    { key: 'bushitsu',name: '部室',     w: 5,  eventW: { none: 30, item: 30, enemy: 18, student: 15, hazard: 7 } },
+    { key: 'shokuin', name: '職員室',   w: 3,  eventW: { none: 12, item: 25, enemy: 45, student: 3,  hazard: 15 } },
+    { key: 'okujou',  name: '屋上',     w: 2,  eventW: { none: 70, item: 10, enemy: 10, student: 8,  hazard: 2 } },
+    { key: 'yuganda', name: '歪んだ教室', w: 5, eventW: { none: 12, item: 25, enemy: 43, student: 5,  hazard: 15 }, warped: true },
   ];
+  const roomByKey = k => ROOMS.find(r => r.key === k);
 
-  // fight=str / flee=agi / hide=int, target = 2d6+stat needed. null = impossible.
   const ENEMIES = [
-    { name: '徘徊するもの', line: '廊下の奥、背の高い影が、ゆっくりとこちらに顔を向けた。',
+    { key: 'haikai', name: '徘徊するもの', line: '廊下の奥、背の高い影が、ゆっくりとこちらに顔を向けた。',
       fight: 9, flee: 8, hide: 8, failFx: { hp: 2 } },
-    { name: '校内放送', line: '『……繰り返す。下校時刻は、』 スピーカーはとうに壊れているはずだ。',
+    { key: 'housou', name: '校内放送', line: '『……繰り返す。下校時刻は、』 スピーカーはとうに壊れているはずだ。',
       fight: null, flee: 8, hide: 7, failFx: { mp: 2 } },
-    { name: '理科室の標本', line: 'ホルマリンの瓶が、内側から軽く叩かれている。',
+    { key: 'hyouhon', name: '理科室の標本', line: 'ホルマリンの瓶が、内側から軽く叩かれている。',
       fight: 7, flee: 9, hide: 8, failFx: { hp: 1, mp: 1 } },
-    { name: '足音だけの生徒', line: '上履きの足音が近づいてくる。姿は、ない。',
+    { key: 'ashioto', name: '足音だけの生徒', line: '上履きの足音が近づいてくる。姿は、ない。',
       fight: null, flee: 7, hide: 7, failFx: { mp: 2 } },
-    { name: '窓のそとのかお', line: 'ここは三階のはずだった。窓の外に、顔がある。',
+    { key: 'kao', name: '窓のそとのかお', line: 'ここは三階のはずだった。窓の外に、顔がある。',
       fight: null, flee: null, hide: 8, failFx: { mp: 1 } },
-    { name: '用務員だったもの', line: 'モップの音。低い鼻歌。振り向いてはいけない気がする。',
+    { key: 'youmuin', name: '用務員だったもの', line: 'モップの音。低い鼻歌。振り向いてはいけない気がする。',
       fight: 8, flee: 7, hide: 9, failFx: { hp: 2 } },
+    { key: 'toiletko', name: 'トイレの子', line: '一番奥の個室から、ノックが返ってきた。……こちらは、ノックなんかしていない。',
+      fight: null, flee: 8, hide: 7, failFx: { mp: 2 } },
   ];
+  const ROOM_ENEMY = { rika: 'hyouhon', toilet: 'toiletko', ongaku: 'housou', shokuin: 'youmuin', roka: 'haikai' };
 
   const HAZARDS = [
     { name: '崩れた床', stat: 'agi', target: 8, failFx: { hp: 1 }, line: '床板が口を開けている。' },
     { name: '散らばったガラス', stat: 'int', target: 8, failFx: { hp: 1 }, line: '月明かりに、破片が光っている。' },
     { name: '鳴り止まないチャイム', stat: 'int', target: 8, failFx: { mp: 1 }, line: 'チャイムが、ずっと鳴っている。' },
     { name: '冷たい暗闇', stat: 'int', target: 8, failFx: { mp: 1 }, line: 'この暗さは、ただの夜じゃない。' },
+    { name: '揺れる階段', stat: 'agi', target: 8, failFx: { hp: 1 }, line: '踏むたび、段の数が合わない。' },
   ];
 
   const ITEMS = [
-    { key: 'light',   name: '懐中電灯',       type: 'passive', stat: 'int', desc: '直感+1' },
-    { key: 'shinai',  name: '竹刀',           type: 'passive', stat: 'str', desc: '腕力+1' },
-    { key: 'shoes',   name: '運動靴',         type: 'passive', stat: 'agi', desc: '敏捷+1' },
-    { key: 'omamori', name: '校章のお守り',   type: 'auto',    desc: '失敗を1度だけ庇ってくれる' },
-    { key: 'aid',     name: '救急セット',     type: 'use',     desc: '体力+2' },
-    { key: 'choco',   name: 'チョコレート',   type: 'use',     desc: '気力+2' },
-    { key: 'salt',    name: '塩',             type: 'use',     desc: '遭遇中: やり過ごす' },
-    { key: 'camera',  name: '使い捨てカメラ', type: 'use',     desc: '次に引く部屋を先に見る' },
+    { key: 'mop',     name: 'モップ',           type: 'passive', stat: 'str', desc: '腕力+1' },
+    { key: 'shinai',  name: '竹刀',             type: 'passive', stat: 'str', desc: '腕力+1' },
+    { key: 'cutter',  name: 'カッター',         type: 'passive', stat: 'str', desc: '腕力+1' },
+    { key: 'light',   name: '懐中電灯',         type: 'passive', stat: 'int', desc: '直感+1' },
+    { key: 'shoes2',  name: '自分の運動靴',     type: 'passive', stat: 'agi', desc: '敏捷+1' },
+    { key: 'omamori', name: '校章のお守り',     type: 'auto',    desc: '失敗を1度だけ庇ってくれる' },
+    { key: 'pan',     name: '購買のパン',       type: 'use',     desc: '体力+2' },
+    { key: 'ramune',  name: 'ラムネ',           type: 'use',     desc: '正気度+1' },
+    { key: 'salt',    name: '塩',               type: 'use',     desc: '遭遇中: やり過ごす' },
+    { key: 'chalk',   name: 'チョーク',         type: 'use',     desc: '床に結界: この部屋で休む・探索しても遭遇しない' },
+    { key: 'camera',  name: '使い捨てカメラ',   type: 'use',     desc: 'いま見えている3枚の気配がわかる' },
+    { key: 'orgel',   name: 'オルゴール',       type: 'use',     desc: '遭遇中: やり過ごす' },
+    { key: 'note',    name: '謎のノート',       type: 'use',     desc: '正気度-1: 帰り支度の在り処が視える' },
+    { key: 'yakuhin', name: 'よくわからない薬品', type: 'use',   desc: '半々で体力+2か、正気度-1' },
+    { key: 'watch',   name: '4時44分の腕時計',  type: 'use',     desc: 'このターン、時が進まない' },
+    { key: 'photo',   name: '誰もいない集合写真', type: 'use',   desc: '遭遇中: どんな相手もやり過ごす' },
   ];
-  const ITEM_DROP = ['light', 'shinai', 'shoes', 'omamori', 'aid', 'aid', 'choco', 'choco', 'salt', 'camera'];
+  const itemByKey = k => ITEMS.find(i => i.key === k);
+  const DROP_COMMON = ['mop', 'shinai', 'cutter', 'light', 'shoes2', 'omamori', 'pan', 'pan', 'ramune', 'salt', 'chalk', 'camera'];
+  const DROP_BY_ROOM = {
+    kateika: ['pan', 'pan', 'ramune', 'salt', 'salt', 'chalk'],
+    rika: ['yakuhin', 'yakuhin', 'light', 'salt'],
+    ongaku: ['orgel', 'orgel', 'ramune'],
+    taiiku: ['shinai', 'mop', 'shoes2', 'shoes2'],
+    tosho: ['note', 'note', 'light', 'chalk'],
+    shokuin: ['light', 'omamori', 'camera', 'note'],
+    yuganda: ['watch', 'photo', 'note', 'omamori'],
+    hoken: ['pan', 'ramune', 'omamori'],
+  };
 
-  const STUDENT_NAMES = ['二年の先輩', '同じクラスの子', '知らない制服の子', '下級生', '眼鏡の子', '三つ編みの子'];
+  // 生徒生成
+  const SURNAMES = ['水原', '綾瀬', '日野', '葛西', '鵜飼', '八木沢', '東雲', '宇治', '篠田', '時任', '六車', '夜久', '浅葱', '神代', '小鳥遊', '真城', '朝倉', '白瀬', '黒峰', '燕'];
+  const GIVEN = ['千景', '小夜', 'なずな', '弥生', 'こはる', '真昼', '未明', '汀', '六花', '綴', 'しをり', '曜', '忍', '環', '柚葉', '藍', '琴里', '望', '文', '牡丹'];
+  const GIVEN_KANA = ['チカゲ', 'サヨ', 'ナズナ', 'ヤヨイ', 'コハル', 'マヒル', 'ミギワ', 'リッカ', 'ツヅリ', 'シオリ', 'ヨウ', 'シノブ', 'タマキ', 'ユズハ', 'アイ', 'コトリ', 'ノゾミ', 'アヤ', 'ボタン'];
+  const ODD_READINGS = [['未明', 'あさけ'], ['汀', 'なぎさ'], ['曜', 'ひかり'], ['文', 'かざり'], ['六花', 'ゆき'], ['環', 'めぐる']];
+  const SHOE_COLORS = ['赤', '青', '緑'];
+  const JERSEY_COLORS = ['えんじ', '紺', '深緑'];
+  const PROTAG_SURNAMES = ['真城', '朝倉', '白瀬', '黒峰'];
+
+  function genStudent() {
+    const s = {};
+    s.surname = pick(SURNAMES);
+    const r = Math.random();
+    let reading = null;
+    if (r < 0.12) { s.given = pick(GIVEN_KANA); }
+    else if (r < 0.20) { const p = pick(ODD_READINGS); s.given = p[0]; reading = p[1]; }
+    else { s.given = pick(GIVEN); }
+    s.reading = reading;
+    s.grade = ri(1, 3);
+    s.classNo = ri(1, 4);
+    // 入学年度のズレ(過去/未来)。色のローテーションはここから決まる
+    s.cohortOffset = ri(-6, 6);
+    const cohort = ((s.grade + s.cohortOffset) % 3 + 3) % 3;
+    s.shoe = SHOE_COLORS[cohort];
+    s.jersey = JERSEY_COLORS[(cohort + 1) % 3];
+    s.look = { hair: ri(0, 5), hairColor: pick(HAIR_COLORS) };
+    return s;
+  }
+
   const STUDENT_EVENTS = [
-    { w: 35, mp: 1, line: '少しだけ話した。「わたし、ここの生徒だよ。ずっと前から」……励まされた気がする。' },
-    { w: 25, item: true, line: '「これ、あげる。わたしはもう、いらないから」' },
-    { w: 20, mp: 1, line: '一緒に歩いてくれた。角のところで、いつの間にかいなくなっていた。' },
-    { w: 20, mp: -1, line: '笑っている。ずっと笑っている。この学校の生徒は、こんなに多かっただろうか。' },
+    { w: 30, mp: 1, line: '「わたし、ここの生徒だよ。ずっと前から」……励まされた気がする。' },
+    { w: 22, item: true, line: '「これ、あげる。わたしはもう、いらないから」' },
+    { w: 18, mp: 1, line: '少しだけ並んで歩いた。角のところで、いつの間にかいなくなっていた。' },
+    { w: 15, hint: true, line: '「さがしもの? ……なら、いいことを教えてあげる」' },
+    { w: 15, mp: -1, line: '笑っている。ずっと笑っている。この学校の生徒は、こんなに多かっただろうか。' },
   ];
 
   const FLAVOR = [
@@ -312,7 +480,10 @@
     '机の中に、書きかけの手紙。「夜明けまで、って決めたから」',
     '蛇口から一滴。水音がやけに大きく響く。',
     'ここの空気は少しだけ甘い。アーモンドみたいな。',
+    'うしろで、床の軋む音。振り向かない。',
   ];
+
+  const HINT_TEXT = { none: '静かだ', item: '何かが光っている', enemy: '嫌な気配がする', student: '人の気配がする', hazard: '足元が危うい' };
 
   const PHASES = [
     { name: '宵',       until: 0.25, encMul: 0.8 },
@@ -322,57 +493,45 @@
   ];
 
   const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
-  const OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
-  const DIR_LABEL = { N: '北', S: '南', E: '東', W: '西' };
-  const CELL = 148; // grid step (120px card + gap)
+  const LEFT_OF = { N: 'W', W: 'S', S: 'E', E: 'N' };
+  const RIGHT_OF = { N: 'E', E: 'S', S: 'W', W: 'N' };
+  const CELL = 148;
+  const GOAL_DEFS = [
+    { key: 'bag',   name: 'かばん',     rooms: ['kyou', 'bushitsu'], p: 0.5 },
+    { key: 'shoes', name: '上履き',     rooms: ['toilet', 'taiiku', 'bushitsu'], p: 0.5 },
+    { key: 'key',   name: '昇降口の鍵', rooms: ['shokuin'], p: 0.85 },
+  ];
 
   // ================= state =================
   let S = null;
-
-  function weightedPick(list, wOf) {
-    let total = 0;
-    for (const it of list) total += wOf(it);
-    let r = Math.random() * total;
-    for (const it of list) {
-      r -= wOf(it);
-      if (r < 0) return it;
-    }
-    return list[list.length - 1];
-  }
 
   function newGame(charIdx, diffIdx) {
     const c = CHARS[charIdx];
     S = {
       char: c, diff: DIFFS[diffIdx],
       hp: c.hp, mp: c.mp, maxHp: c.hp, maxMp: c.mp,
-      turn: 0,
-      items: [],
-      map: new Map(), edges: new Set(),
-      pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 },
-      enc: null, pendingEnd: false,
-      peeked: null,
-      drainCounter: 0,
-      over: false, won: false,
-      roomsExplored: 1,
-      omamoriUsed: 0,
+      turn: 0, items: [],
+      goals: { bag: false, shoes: false, key: false },
+      map: new Map(), pos: { x: 0, y: 0 }, facing: 'N',
+      offers: [], enc: null, student: null, pendingEnd: false,
+      stays: 0, chalk: false, peekBuff: false, goalSense: 0,
+      timeStop: false, skipTick: false,
+      drainCounter: 0, over: false, won: false, ending: null,
+      roomsExplored: 1, omamoriUsed: 0, metStudents: [],
     };
-    // start: entrance with all four doors
-    S.map.set('0,0', {
-      x: 0, y: 0, room: { key: 'genkan', name: '昇降口', mark: '扉', warped: false },
-      exits: { N: true, S: true, E: true, W: true }, searched: false,
-    });
+    S.map.set('0,0', { x: 0, y: 0, room: { key: 'genkan', name: '昇降口', warped: false }, searched: true });
     $('log').innerHTML = '';
     log(`${c.name}。放課後の校舎に、まだ残っている。`, 'l-warn');
     log(`${S.diff.name} — 夜明けまで ${S.diff.turns} ターン。`);
-    log('昇降口の扉は、もう開かない。');
+    log('昇降口の扉は開かない。上履きも、かばんも、見当たらない。');
+    log('帰り支度を揃えないと、朝が来ても帰れない。', 'l-warn');
+    makeOffers();
     showScreen('game');
     renderAll();
     centerOnPlayer(false);
   }
 
-  // ================= helpers =================
   const key = (x, y) => x + ',' + y;
-  const edgeKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
   const cellAt = (x, y) => S.map.get(key(x, y)) || null;
   const here = () => cellAt(S.pos.x, S.pos.y);
 
@@ -389,15 +548,12 @@
     return base + bonus;
   }
 
-  function roll2d6() { return ri(1, 6) + ri(1, 6); }
-
-  // check with omamori auto-save. returns true on (possibly saved) success
   function check(kind, target, label) {
     const st = statOf(kind);
-    const dice = roll2d6();
-    const total = dice + st;
+    const d1 = ri(1, 6), d2 = ri(1, 6);
+    const total = d1 + d2 + st;
     const ok = total >= target;
-    log(`${label} — 2d6(${dice})+${st} = ${total} / 目標${target} … ${ok ? '成功' : '失敗'}`, 'l-roll');
+    log(`${label} — 2d6(${d1}+${d2})+${st} = ${total} / 目標${target} … ${ok ? '成功' : '失敗'}`, 'l-roll');
     if (!ok) {
       const oi = S.items.findIndex(it => it.key === 'omamori');
       if (oi !== -1) {
@@ -412,24 +568,22 @@
 
   function damage(fx) {
     if (fx.hp) { S.hp -= fx.hp; log(`体力が ${fx.hp} 削られた。`, 'l-bad'); }
-    if (fx.mp) { S.mp -= fx.mp; log(`気力が ${fx.mp} すり減った。`, 'l-bad'); }
+    if (fx.mp) { S.mp -= fx.mp; log(`正気度が ${fx.mp} すり減った。`, 'l-bad'); }
     checkDead();
   }
-
   function heal(hp, mp) {
     if (hp) S.hp = clamp(S.hp + hp, 0, S.maxHp);
     if (mp) S.mp = clamp(S.mp + mp, 0, S.maxMp);
   }
-
   function checkDead() {
     if (S.over) return;
-    if (S.hp <= 0) endGame(false, 'hp');
-    else if (S.mp <= 0) endGame(false, 'mp');
+    if (S.hp <= 0) endGame('death');
+    else if (S.mp <= 0) endGame('student');
   }
 
   function giveItem(itKey) {
-    const k = itKey || pick(ITEM_DROP);
-    const proto = ITEMS.find(i => i.key === k);
+    const k = itKey || pick(DROP_COMMON);
+    const proto = itemByKey(k);
     if (S.items.length >= 4) {
       log(`${proto.name} を見つけたが、これ以上は持ちきれない。そっと置いていく。`, 'l-warn');
       return;
@@ -437,75 +591,163 @@
     S.items.push({ ...proto });
     log(`${proto.name} を手に入れた。(${proto.desc})`, 'l-good');
   }
-
-  // ================= rooms & map =================
-  function drawRoomType() {
-    if (S.peeked) { const r = S.peeked; S.peeked = null; return r; }
-    return weightedPick(ROOMS, r => r.w);
+  function giveRoomItem(roomKey) {
+    const pool = DROP_BY_ROOM[roomKey];
+    giveItem(pool ? pick(pool) : null);
   }
 
-  function placeNewRoom(x, y, enterDir) {
-    const type = drawRoomType();
-    const exits = { N: false, S: false, E: false, W: false };
-    exits[OPP[enterDir]] = true; // the door you came through always exists
-    const extra = ri(type.exMin, type.exMax) - 1;
-    const others = ['N', 'S', 'E', 'W'].filter(d => d !== OPP[enterDir]);
-    for (let i = 0; i < extra; i++) {
-      const d = others.splice(Math.floor(Math.random() * others.length), 1)[0];
-      if (d) exits[d] = true;
+  // ================= offers (three cards) =================
+  function drawRoomType() {
+    return weightedPick(ROOMS, r => {
+      let w = r.w;
+      // 詰み防止: 夜が深いのに鍵が無いなら職員室が現れやすくなる
+      if (r.key === 'shokuin' && !S.goals.key && S.turn / S.diff.turns > 0.25) w += 8;
+      // ノート/屋上の効果: 足りない帰り支度の部屋が現れやすい
+      if (S.goalSense > 0) {
+        for (const g of GOAL_DEFS) if (!S.goals[g.key] && g.rooms.includes(r.key)) { w *= 2; break; }
+      }
+      return w;
+    });
+  }
+  function preRollEvent(type) {
+    const w = { ...type.eventW };
+    w.enemy = Math.round(w.enemy * phase().encMul * S.diff.encMul);
+    return weightedPick(Object.keys(w), k => w[k]);
+  }
+
+  function makeOffers() {
+    const dirs = [['左', LEFT_OF[S.facing]], ['前', S.facing], ['右', RIGHT_OF[S.facing]]];
+    S.offers = [];
+    let allBlocked = true;
+    for (const [label, abs] of dirs) {
+      const [dx, dy] = DIRS[abs];
+      if (cellAt(S.pos.x + dx, S.pos.y + dy)) {
+        S.offers.push({ label, abs, blocked: true });
+      } else {
+        allBlocked = false;
+        const type = drawRoomType();
+        S.offers.push({ label, abs, blocked: false, type, evKind: preRollEvent(type), revealed: S.peekBuff });
+      }
     }
-    const cell = { x, y, room: type, exits, searched: false };
-    S.map.set(key(x, y), cell);
+    S.peekBuff = false;
+    if (allBlocked) {
+      // 自分の軌跡に囲まれた: 校舎が組み変わり、少し先の空き地点へ
+      log('三方から、足音。……壁が、頁をめくるように捲れた。', 'l-warn');
+      const [fx, fy] = DIRS[S.facing];
+      let placed = false;
+      for (let step = 2; step <= 8 && !placed; step++) {
+        const nx = S.pos.x + fx * step, ny = S.pos.y + fy * step;
+        if (!cellAt(nx, ny)) {
+          S.map.set(key(nx, ny), { x: nx, y: ny, room: { key: 'yuganda', name: '歪んだ廊下', warped: true }, searched: false });
+          S.pos = { x: nx, y: ny };
+          S.roomsExplored++;
+          placed = true;
+        }
+      }
+      if (!placed) {
+        // ほぼ起こらないが保険: どこか空いている隣接を探して全マップ走査
+        outer: for (let r = 1; r < 30; r++) {
+          for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+            const nx = S.pos.x + dx, ny = S.pos.y + dy;
+            if (!cellAt(nx, ny)) {
+              S.map.set(key(nx, ny), { x: nx, y: ny, room: { key: 'yuganda', name: '歪んだ廊下', warped: true }, searched: false });
+              S.pos = { x: nx, y: ny };
+              S.roomsExplored++;
+              break outer;
+            }
+          }
+        }
+      }
+      makeOffers();
+    }
+  }
+
+  function chooseOffer(idx) {
+    if (S.over || S.enc || S.student) return;
+    const o = S.offers[idx];
+    if (!o || o.blocked) return;
+    const [dx, dy] = DIRS[o.abs];
+    const nx = S.pos.x + dx, ny = S.pos.y + dy;
+    const cell = { x: nx, y: ny, room: o.type, searched: false };
+    S.map.set(key(nx, ny), cell);
     S.roomsExplored++;
-    return cell;
+    S.pos = { x: nx, y: ny };
+    S.facing = o.abs;
+    S.stays = 0;
+    S.chalk = false;
+    S.pendingEnd = true;
+    log(`${o.label}の扉へ。—— ${o.type.name}。`);
+    roomArrival(cell, o.evKind);
+    completeTurn();
+    centerOnPlayer(true);
+  }
+
+  function roomArrival(cell, evKind) {
+    const rk = cell.room.key;
+    if (rk === 'watari' && !S.flagWatari) { S.flagWatari = true; heal(0, 1); log('渡り廊下。外の月が見えた。すこし息がつける。正気度+1', 'l-good'); }
+    if (rk === 'roka') { S.peekBuff = true; log('見通しのいい廊下だ。この先の気配が読めそうだ。', 'l-good'); }
+    if (rk === 'kaidan' && Math.random() < 0.15) { S.skipTick = true; log('階段が、行きたい方に繋がっていた。近道だ。(ターンを消費しない)', 'l-good'); }
+    if (rk === 'okujou') {
+      heal(0, 2);
+      log('屋上。夜風。空の底が少しだけ白い。正気度+2', 'l-good');
+      goalHint();
+      S.goalSense = Math.max(S.goalSense, 4);
+    }
+    // 到着イベント
+    if (evKind === 'none') log(pick(FLAVOR));
+    else if (evKind === 'item') giveRoomItem(rk);
+    else if (evKind === 'enemy') startEncounter(rk);
+    else if (evKind === 'student') studentEvent();
+    else hazardEvent(rk);
+  }
+
+  function goalHint() {
+    const missing = GOAL_DEFS.filter(g => !S.goals[g.key]);
+    if (!missing.length) { log('帰り支度は、もう揃っている。あとは朝を待つだけ。', 'l-good'); return; }
+    for (const g of missing) {
+      const names = g.rooms.map(k => roomByKey(k).name).join('・');
+      log(`【視えた】${g.name} は ${names} にある。`, 'l-warn');
+    }
   }
 
   // ================= events =================
-  function arrivalEvent(cell, isNew) {
-    const ph = phase();
-    if (!isNew) {
-      // revisits are mostly quiet
-      if (Math.random() < 0.10 * ph.encMul * S.diff.encMul) startEncounter();
-      return;
-    }
-    const w = { ...cell.room.eventW };
-    w.enemy = Math.round(w.enemy * ph.encMul * S.diff.encMul);
-    const kind = weightedPick(Object.keys(w), k => w[k]);
-    if (kind === 'none') {
-      log(pick(FLAVOR));
-    } else if (kind === 'item') {
-      giveItem();
-    } else if (kind === 'enemy') {
-      startEncounter();
-    } else if (kind === 'student') {
-      studentEvent();
-    } else {
-      hazardEvent();
-    }
+  function studentEvent() {
+    const stu = genStudent();
+    const ev = weightedPick(STUDENT_EVENTS, e => e.w);
+    S.student = { stu, ev };
+    // 矛盾チェック: 同じ学年・組なのに上履きの色が違う
+    const clash = S.metStudents.find(m => m.grade === stu.grade && m.classNo === stu.classNo && m.shoe !== stu.shoe);
+    S.student.clash = !!clash;
+    S.metStudents.push({ grade: stu.grade, classNo: stu.classNo, shoe: stu.shoe });
+    renderAll();
   }
 
-  function studentEvent() {
-    const who = pick(STUDENT_NAMES);
-    const ev = weightedPick(STUDENT_EVENTS, e => e.w);
-    log(`${who}がいた。`, 'l-warn');
+  function dismissStudent() {
+    if (!S.student) return;
+    const { stu, ev, clash } = S.student;
+    S.student = null;
+    log(`${stu.surname} ${stu.given}(${stu.grade}-${stu.classNo})と別れた。`);
     log(ev.line);
     if (ev.item) giveItem();
-    if (ev.mp) {
-      heal(0, Math.max(0, ev.mp));
-      if (ev.mp < 0) damage({ mp: -ev.mp });
-      else log('気力が少し戻った。', 'l-good');
-    }
+    if (ev.hint) goalHint();
+    if (ev.mp > 0) { heal(0, ev.mp); log('正気度が少し戻った。', 'l-good'); }
+    if (ev.mp < 0) damage({ mp: -ev.mp });
+    if (clash && !S.over) log('……あの子、同じクラスの子と上履きの色が違った。同じ年の生徒の色は、揃うはずなのに。', 'l-warn');
+    completeTurn();
   }
 
-  function hazardEvent() {
-    const hz = pick(HAZARDS);
+  function hazardEvent(rk) {
+    let hz = pick(HAZARDS);
+    if (rk === 'kaidan') hz = HAZARDS[4];
     log(`【${hz.name}】 ${hz.line}`, 'l-warn');
     if (!check(hz.stat, hz.target, '回避')) damage(hz.failFx);
     else log('なんとかやり過ごした。');
   }
 
-  function startEncounter() {
-    const e = pick(ENEMIES);
+  function startEncounter(roomKey) {
+    let e;
+    if (roomKey && ROOM_ENEMY[roomKey] && Math.random() < 0.6) e = ENEMIES.find(x => x.key === ROOM_ENEMY[roomKey]);
+    else e = pick(ENEMIES);
     S.enc = e;
     log(`【遭遇】 ${e.name}`, 'l-bad');
     log(e.line);
@@ -515,23 +757,18 @@
     const e = S.enc;
     const kindMap = { fight: 'str', flee: 'agi', hide: 'int' };
     const labelMap = { fight: '戦う', flee: '逃げる', hide: '隠れる' };
-    const target = e[action];
-    const ok = check(kindMap[action], target, labelMap[action]);
+    const ok = check(kindMap[action], e[action], labelMap[action]);
     S.enc = null;
-    // the deeper the night, the harder they hit
     const deep = phase().idx >= 2;
     const fx = { ...e.failFx };
     if (deep) { if (fx.hp) fx.hp += 1; else if (fx.mp) fx.mp += 1; }
     if (ok) {
       if (action === 'fight') {
         log('追い払った。手が少し震えている。', 'l-good');
-        if (S.char.ability === 'fighter') { heal(0, 1); log('澪「……なんだ、大したことないじゃん」 気力+1', 'l-good'); }
+        if (S.char.ability === 'fighter') { heal(0, 1); log('澪「……なんだ、大したことないじゃん」 正気度+1', 'l-good'); }
       } else if (action === 'flee') {
-        log('走った。振り返らなかった。', 'l-good');
-        if (S.char.ability === 'runner') { heal(0, 1); log('ひな「陸上部なめないでよね!」 気力+1', 'l-good'); }
-        // slip back to the previous room
-        const back = cellAt(S.prevPos.x, S.prevPos.y);
-        if (back) { S.pos = { ...S.prevPos }; log(`${back.room.name} まで戻ってきた。`); }
+        log('走った。来た道には戻れない——柱の陰に逸れて、やり過ごす。', 'l-good');
+        if (S.char.ability === 'runner') { heal(0, 1); log('ひな「陸上部なめないでよね!」 正気度+1', 'l-good'); }
       } else {
         log('息を殺す。……行った、みたいだ。', 'l-good');
       }
@@ -539,148 +776,185 @@
       damage(fx);
       if (!S.over) log('それでも、なんとか離れられた。');
     }
-    finishTurnAfterEncounter();
+    completeTurn();
   }
 
-  function useSaltOnEncounter() {
-    const i = S.items.findIndex(it => it.key === 'salt');
-    if (i === -1 || !S.enc) return;
-    S.items.splice(i, 1);
-    log('塩を撒いた。空気が、すっと軽くなる。', 'l-good');
-    S.enc = null;
-    finishTurnAfterEncounter();
-  }
-
-  function finishTurnAfterEncounter() {
-    if (S.over) { renderAll(); return; }
-    if (S.pendingEnd) { S.pendingEnd = false; endTurn(); }
-    else renderAll();
-  }
-
-  // ================= actions =================
-  function tryMove(dir) {
-    if (S.over || S.enc) return;
-    const cur = here();
-    if (!cur.exits[dir]) return;
-    const [dx, dy] = DIRS[dir];
-    const nx = S.pos.x + dx, ny = S.pos.y + dy;
-    const existing = cellAt(nx, ny);
-    S.prevPos = { ...S.pos };
-    if (!existing) {
-      const cell = placeNewRoom(nx, ny, dir);
-      S.edges.add(edgeKey(key(S.pos.x, S.pos.y), key(nx, ny)));
-      S.pos = { x: nx, y: ny };
-      log(`${DIR_LABEL[dir]}へ。扉の先は—— ${cell.room.name}。`);
-      S.pendingEnd = true;
-      arrivalEvent(cell, true);
-    } else {
-      const ek = edgeKey(key(S.pos.x, S.pos.y), key(nx, ny));
-      const connectable = S.edges.has(ek) || existing.exits[OPP[dir]];
-      if (!connectable) { log('その扉は、こちらからは開かないようだ。', 'l-warn'); return; }
-      S.edges.add(ek);
-      S.pos = { x: nx, y: ny };
-      log(`${existing.room.name} に戻った。`);
-      S.pendingEnd = true;
-      arrivalEvent(existing, false);
-    }
-    if (!S.enc && S.pendingEnd) { S.pendingEnd = false; endTurn(); }
-    else renderAll();
-    centerOnPlayer(true);
+  // ================= actions in place =================
+  function stayRisk() {
+    if (S.chalk) return 0;
+    return (0.24 + 0.10 * S.stays) * phase().encMul * S.diff.encMul;
   }
 
   function doRest(kind) {
-    if (S.over || S.enc) return;
+    if (S.over || S.enc || S.student) return;
     const cur = here();
+    S.stays++;
     if (kind === 'hp') {
       const amount = cur.room.key === 'hoken' ? 2 : 1;
       heal(amount, 0);
       log(cur.room.key === 'hoken' ? '保健室のベッドで手当てをした。体力+2' : '手当てをした。体力+1', 'l-good');
     } else {
       heal(0, 1);
-      log('深呼吸。まだ大丈夫。気力+1', 'l-good');
+      log('深呼吸。まだ大丈夫。正気度+1', 'l-good');
     }
     S.pendingEnd = true;
-    if (Math.random() < 0.28 * phase().encMul * S.diff.encMul) {
-      log('物音がした。', 'l-warn');
-      startEncounter();
+    if (Math.random() < stayRisk()) {
+      log('——物音。うしろの気配が、近い。', 'l-warn');
+      startEncounter(cur.room.key);
     }
-    if (!S.enc) { S.pendingEnd = false; endTurn(); }
-    else renderAll();
+    completeTurn();
   }
 
   function doSearch() {
-    if (S.over || S.enc) return;
+    if (S.over || S.enc || S.student) return;
     const cur = here();
-    let itemP = cur.searched ? 0.10 : 0.40;
-    if (cur.room.key === 'tosho' || cur.room.key === 'kateika') itemP += 0.15;
+    const rk = cur.room.key;
+    S.stays++;
+    S.pendingEnd = true;
+
+    // 帰り支度の発見判定を先に(粘れば同じ部屋で探し続けられる。その分、背後の気配は近づく)
+    const goal = GOAL_DEFS.find(g => !S.goals[g.key] && g.rooms.includes(rk));
+    if (goal && Math.random() < goal.p + (S.char.ability === 'observe' ? 0.1 : 0)) {
+      cur.searched = true;
+      S.goals[goal.key] = true;
+      if (goal.key === 'bag') log('ロッカーの陰に、見覚えのあるかばん。中身もそのまま。【帰り支度: かばん】', 'l-good');
+      if (goal.key === 'shoes') log('揃えて置かれた上履き。名前のところに、自分の字。【帰り支度: 上履き】', 'l-good');
+      if (goal.key === 'key') log('教頭の机の引き出しに、昇降口の鍵。冷たい。【帰り支度: 昇降口の鍵】', 'l-good');
+      if (GOAL_DEFS.every(g2 => S.goals[g2.key])) log('帰り支度が、そろった。あとは夜明けまで。', 'l-warn');
+      completeTurn();
+      return;
+    }
+
+    let itemP = cur.searched ? 0.10 : 0.42;
+    if (rk === 'tosho' || rk === 'kateika' || rk === 'bushitsu') itemP += 0.13;
     if (S.char.ability === 'observe') itemP += 0.12;
     cur.searched = true;
-    S.pendingEnd = true;
     const r = Math.random();
     if (r < itemP) {
-      giveItem();
-    } else if (r < itemP + 0.22 * phase().encMul) {
+      if (rk === 'bushitsu') bushitsuGacha();
+      else if (rk === 'tosho' && Math.random() < 0.4) { log('貸出カードの束の中に、まだ新しい書き込み。', 'l-warn'); goalHint(); }
+      else giveRoomItem(rk);
+    } else if (!S.chalk && r < itemP + 0.20 * phase().encMul) {
       log('探しものをしていて、気づくのが遅れた。', 'l-warn');
-      startEncounter();
+      startEncounter(rk);
     } else {
       log(pick(FLAVOR));
     }
-    if (!S.enc) { S.pendingEnd = false; endTurn(); }
-    else renderAll();
+    completeTurn();
+  }
+
+  function bushitsuGacha() {
+    const club = pick(['undo', 'bunka', 'okaruto']);
+    if (club === 'undo') { log('運動部の部室だ。道具がいろいろ転がっている。'); giveItem(pick(['shinai', 'mop', 'shoes2'])); }
+    else if (club === 'bunka') { log('文化部の部室だ。作業机の上に、置き忘れ。'); giveItem(pick(['camera', 'ramune', 'chalk', 'light'])); }
+    else {
+      log('オカルト研究会、と札が出ている。中央の机に、箱がひとつ。', 'l-warn');
+      S.mp -= 1;
+      log('開けた。……見なければよかった。正気度-1', 'l-bad');
+      checkDead();
+      if (!S.over) giveItem(pick(['watch', 'photo', 'note', 'omamori']));
+    }
   }
 
   function useItem(idx) {
-    if (S.over) return;
+    if (S.over || S.student) return;
     const it = S.items[idx];
     if (!it || it.type !== 'use') return;
-    if (it.key === 'salt') { useSaltOnEncounter(); return; }
-    if (S.enc) return; // other consumables not usable mid-encounter
-    if (it.key === 'aid') { S.items.splice(idx, 1); heal(2, 0); log('救急セットで手当てをした。体力+2', 'l-good'); }
-    else if (it.key === 'choco') { S.items.splice(idx, 1); heal(0, 2); log('チョコレートを食べた。甘い。気力+2', 'l-good'); }
-    else if (it.key === 'camera') {
+    const encOnly = it.key === 'salt' || it.key === 'orgel' || it.key === 'photo';
+    if (S.enc) {
+      if (!encOnly) return;
       S.items.splice(idx, 1);
-      S.peeked = weightedPick(ROOMS, r => r.w);
-      log(`カメラのフラッシュ。写真には次の部屋が写っていた—— ${S.peeked.name}。`, 'l-good');
+      if (it.key === 'salt') log('塩を撒いた。空気が、すっと軽くなる。', 'l-good');
+      else if (it.key === 'orgel') log('オルゴールの蓋を開ける。澄んだ音。……気配が、遠ざかった。', 'l-good');
+      else log('写真をかざす。写っていない生徒たちの視線が、相手に集まった。', 'l-good');
+      S.enc = null;
+      completeTurn();
+      return;
+    }
+    if (encOnly) return;
+    S.items.splice(idx, 1);
+    if (it.key === 'pan') { heal(2, 0); log('購買のパンを食べた。一瞬だけ、普通の放課後みたいだ。体力+2', 'l-good'); }
+    else if (it.key === 'ramune') { heal(0, 1); log('ラムネを口に放り込む。甘い。正気度+1', 'l-good'); }
+    else if (it.key === 'chalk') { S.chalk = true; log('チョークで足元に輪を描いた。ここにいる間は、たぶん大丈夫。', 'l-good'); }
+    else if (it.key === 'camera') {
+      S.offers.forEach(o => { if (!o.blocked) o.revealed = true; });
+      log('フラッシュ。焼き付いた残像に、この先の気配が写っている。', 'l-good');
+    }
+    else if (it.key === 'note') {
+      S.mp -= 1;
+      log('謎のノートを読む。文字が、目の奥に直接くる。正気度-1', 'l-bad');
+      checkDead();
+      if (!S.over) { goalHint(); S.goalSense = Math.max(S.goalSense, 3); }
+    }
+    else if (it.key === 'yakuhin') {
+      if (Math.random() < 0.5) { heal(2, 0); log('薬品を飲んだ。……悪くない。体力+2', 'l-good'); }
+      else { S.mp -= 1; log('薬品を飲んだ。舌の上で、味が三回変わった。正気度-1', 'l-bad'); checkDead(); }
+    }
+    else if (it.key === 'watch') { S.timeStop = true; log('腕時計の竜頭を押した。4時44分。——世界の音が、止んでいる。', 'l-warn'); }
+    renderAll();
+  }
+
+  // ================= turn end =================
+  function completeTurn() {
+    if (S.over) { renderAll(); return; }
+    if (S.enc || S.student) { renderAll(); return; }
+    if (S.pendingEnd) {
+      S.pendingEnd = false;
+      endTurn();
+      if (!S.over) makeOffers();
     }
     renderAll();
   }
 
   function endTurn() {
     if (S.over) return;
+    if (S.timeStop) { S.timeStop = false; log('時計が動き出す。時間は経っていない。', 'l-warn'); return; }
+    if (S.skipTick) { S.skipTick = false; return; }
     S.turn++;
     const ph = phase();
     if (ph.idx === 2 && S.char.ability !== 'nightowl') {
       S.drainCounter++;
       if (S.drainCounter % 3 === 0) {
         S.mp -= 1;
-        log('丑三つ時。夜が、体温を奪っていく。気力-1', 'l-bad');
+        log('丑三つ時。夜が、体温を奪っていく。正気度-1', 'l-bad');
         checkDead();
       }
     }
-    if (!S.over && S.turn >= S.diff.turns) { endGame(true); return; }
-    renderAll();
+    if (!S.over && S.turn >= S.diff.turns) {
+      const all = GOAL_DEFS.every(g => S.goals[g.key]);
+      endGame(all ? 'win' : 'noReturn');
+    }
   }
 
-  function endGame(won, cause) {
-    S.over = true; S.won = won;
+  function endGame(kind) {
+    S.over = true;
+    S.won = kind === 'win';
+    S.ending = kind;
     renderAll();
     setTimeout(() => {
       const t = $('resultTitle'), b = $('resultBody'), st = $('resultStats');
-      if (won) {
+      t.classList.toggle('bad', kind !== 'win');
+      if (kind === 'win') {
         t.textContent = '夜 明 け';
-        t.classList.remove('bad');
-        b.innerHTML = '窓の外が白み始める。チャイムが鳴った。今度のは、ちゃんと壊れていない音だ。<br>' +
-          '昇降口の扉は、当たり前みたいに開いた。<br>' +
+        b.innerHTML = '窓の外が白む。チャイムが鳴った。今度のは、ちゃんと壊れていない音だ。<br>' +
+          '上履きを履き替え、かばんを背負い、鍵を回す。扉は、当たり前みたいに開いた。<br>' +
           `${S.char.name}は振り返らずに校門を出る。——教室のどこかで、誰かがまだ笑っている気がした。`;
+      } else if (kind === 'noReturn') {
+        t.textContent = '帰 れ な い 朝';
+        b.innerHTML = 'チャイムが鳴って、廊下に朝の光が差した。<br>' +
+          'でも昇降口の扉は開かず、下駄箱に上履きはなく、かばんも、どこにもない。<br>' +
+          '放送が言う。『——では、今日も一日、がんばりましょう』<br>まだ、帰り支度が済んでいない。';
+      } else if (kind === 'death') {
+        t.textContent = '下 校 時 刻';
+        b.innerHTML = '膝から力が抜けて、冷たい床の感触も遠くなる。<br>遠くでチャイムが鳴っている。もう、どうでもいいような気がした。';
       } else {
-        t.textContent = cause === 'hp' ? '下 校 時 刻' : '転 入 届';
-        t.classList.add('bad');
-        b.innerHTML = cause === 'hp'
-          ? '膝から力が抜けて、冷たい床の感触も遠くなる。<br>遠くでチャイムが鳴っている。もう、どうでもいいような気がした。'
-          : `気がつくと、${S.char.name}は自分の席に座っていた。<br>「ずっと前からこの学校の生徒だった」——そう思うと、なんだか安心した。<br>この学校には、生徒がとても多い。`;
+        t.textContent = '転 入 届';
+        b.innerHTML = `気がつくと、${S.char.name}は自分の席に座っていた。<br>` +
+          '「ずっと前からこの学校の生徒だった」——そう思うと、なんだか安心した。<br>この学校には、生徒がとても多い。';
       }
-      st.innerHTML = `探索した部屋: ${S.roomsExplored} / 生き延びたターン: ${S.turn} / ${S.diff.name}` +
-        (S.omamoriUsed ? ` / 砕けたお守り: ${S.omamoriUsed}` : '');
+      const goalsGot = GOAL_DEFS.filter(g => S.goals[g.key]).map(g => g.name).join('・') || 'なし';
+      st.innerHTML = `探索した部屋: ${S.roomsExplored} / 生き延びたターン: ${S.turn} / ${S.diff.name}<br>` +
+        `集めた帰り支度: ${goalsGot}` + (S.omamoriUsed ? ` / 砕けたお守り: ${S.omamoriUsed}` : '');
       showScreen('result');
     }, 900);
   }
@@ -692,7 +966,7 @@
     el.textContent = text;
     const box = $('log');
     box.appendChild(el);
-    while (box.children.length > 80) box.removeChild(box.firstChild);
+    while (box.children.length > 90) box.removeChild(box.firstChild);
     box.scrollTop = box.scrollHeight;
   }
 
@@ -706,14 +980,25 @@
   function renderAll() {
     if (!S) return;
     $('pName').textContent = S.char.name;
+    $('pPortrait').innerHTML = portraitSVG(S.char.look);
     $('hpPips').innerHTML = pips(Math.max(0, S.hp), S.maxHp, true);
     $('mpPips').innerHTML = pips(Math.max(0, S.mp), S.maxMp, false);
     $('statLine').textContent = `${statOf('str')} / ${statOf('agi')} / ${statOf('int')}`;
     $('hereName').textContent = here().room.name;
-    const left = Math.max(0, S.diff.turns - S.turn);
-    $('turnLine').textContent = `${left} ターン`;
+    $('turnLine').textContent = `${Math.max(0, S.diff.turns - S.turn)} ターン`;
     $('phaseFill').style.width = clamp(S.turn / S.diff.turns * 100, 0, 100) + '%';
     $('phaseName').textContent = '— ' + phase().name + ' —';
+    $('followLine').textContent = S.stays >= 1 ? 'うしろの気配: ' + '!'.repeat(Math.min(4, S.stays)) : '';
+
+    // goals
+    const gb = $('goalBox');
+    gb.innerHTML = '';
+    for (const g of GOAL_DEFS) {
+      const d = document.createElement('div');
+      d.className = 'goal' + (S.goals[g.key] ? ' done' : '');
+      d.textContent = (S.goals[g.key] ? '✓ ' : '') + g.name;
+      gb.appendChild(d);
+    }
 
     // items
     const ib = $('itemBox');
@@ -726,26 +1011,26 @@
     S.items.forEach((it, i) => {
       const d = document.createElement('div');
       d.className = 'item';
-      const usable = it.type === 'use' && (!S.enc || it.key === 'salt') && !S.over;
       d.innerHTML = `<span>${it.name} <span class="idesc">${it.desc}</span></span>`;
       if (it.type === 'use') {
+        const encOnly = it.key === 'salt' || it.key === 'orgel' || it.key === 'photo';
+        const usable = !S.over && !S.student && (S.enc ? encOnly : !encOnly || true) && (S.enc ? encOnly : true);
         const b = document.createElement('button');
         b.textContent = '使う';
-        b.disabled = !usable;
+        b.disabled = !usable || (!S.enc && encOnly);
         b.addEventListener('click', () => useItem(i));
         d.appendChild(b);
       }
       ib.appendChild(d);
     });
 
-    // actions / encounter
-    const ab = $('actionBox'), eb = $('encBox');
+    // encounter / student / actions
+    const eb = $('encBox'), sb = $('stuBox'), ab = $('actionBox');
     if (S.enc) {
-      ab.innerHTML = '';
-      eb.hidden = false;
+      eb.hidden = false; sb.hidden = true; ab.innerHTML = '';
       eb.innerHTML = `<div class="ename">${S.enc.name}</div><div class="eline">${S.enc.line}</div>`;
       const row = document.createElement('div');
-      row.className = 'arow'; row.style.display = 'flex'; row.style.gap = '6px';
+      row.style.display = 'flex'; row.style.gap = '6px';
       [['fight', '戦う'], ['flee', '逃げる'], ['hide', '隠れる']].forEach(([k, label]) => {
         const b = document.createElement('button');
         b.style.flex = '1';
@@ -756,37 +1041,63 @@
         row.appendChild(b);
       });
       eb.appendChild(row);
+    } else if (S.student) {
+      eb.hidden = true; sb.hidden = false; ab.innerHTML = '';
+      const { stu } = S.student;
+      const nameLine = `${stu.surname} ${stu.given}` + (stu.reading ? `(「${stu.reading}」と読むらしい)` : '');
+      const sameName = PROTAG_SURNAMES.includes(stu.surname) ? '<br>……聞き覚えのある苗字だ。' : '';
+      sb.innerHTML = `<div class="stop">
+          <div class="sportrait">${portraitSVG(stu.look)}</div>
+          <div>
+            <div class="sname">${nameLine}</div>
+            <div class="sinfo">${stu.grade}年${stu.classNo}組<br>上履き: ${stu.shoe} / ジャージ: ${stu.jersey}${sameName}</div>
+          </div>
+        </div>
+        <div class="sline">「こんな時間まで、なにしてるの」</div>`;
+      const b = document.createElement('button');
+      b.textContent = '……先へ行く';
+      b.addEventListener('click', dismissStudent);
+      sb.appendChild(b);
     } else {
-      eb.hidden = true;
+      eb.hidden = true; sb.hidden = true;
       ab.innerHTML = '';
       const cur = here();
-      const moveRow = document.createElement('div');
-      moveRow.className = 'arow';
-      ['W', 'N', 'S', 'E'].forEach(d => {
-        const b = document.createElement('button');
-        const [dx, dy] = DIRS[d];
-        const target = cellAt(S.pos.x + dx, S.pos.y + dy);
-        b.textContent = DIR_LABEL[d] + (target ? `·${target.room.name}` : '·?');
-        b.disabled = !cur.exits[d] || S.over;
-        b.addEventListener('click', () => tryMove(d));
-        moveRow.appendChild(b);
-      });
-      ab.appendChild(moveRow);
-      const actRow = document.createElement('div');
-      actRow.className = 'arow';
       const mk = (label, fn, dis) => {
         const b = document.createElement('button');
         b.textContent = label; b.disabled = !!dis || S.over;
         b.addEventListener('click', fn);
-        actRow.appendChild(b);
+        ab.appendChild(b);
       };
       mk('手当て(体力+' + (cur.room.key === 'hoken' ? 2 : 1) + ')', () => doRest('hp'), S.hp >= S.maxHp);
-      mk('深呼吸(気力+1)', () => doRest('mp'), S.mp >= S.maxMp);
+      mk('深呼吸(正気度+1)', () => doRest('mp'), S.mp >= S.maxMp);
       mk('探索する', doSearch);
-      ab.appendChild(actRow);
     }
 
+    renderOffers();
     renderBoard();
+  }
+
+  function renderOffers() {
+    const box = $('offers');
+    box.innerHTML = '';
+    if (!S || S.over || S.enc || S.student) return;
+    S.offers.forEach((o, i) => {
+      const d = document.createElement('div');
+      d.className = 'offer' + (o.blocked ? ' blocked' : '');
+      if (o.blocked) {
+        d.innerHTML = `<div class="odir">${o.label}</div>
+          <div class="oart"></div>
+          <div class="oname">足音がする</div>
+          <div class="ohint">来た道には、戻れない</div>`;
+      } else {
+        d.innerHTML = `<div class="odir">${o.label}</div>
+          <div class="oart">${roomArtSVG(o.type.key, o.type.warped)}</div>
+          <div class="oname">${o.type.name}</div>
+          <div class="ohint">${o.revealed ? HINT_TEXT[o.evKind] : ''}</div>`;
+        d.addEventListener('click', () => chooseOffer(i));
+      }
+      box.appendChild(d);
+    });
   }
 
   function renderBoard() {
@@ -798,34 +1109,10 @@
       if (cell.x === S.pos.x && cell.y === S.pos.y) d.classList.add('cur');
       d.style.left = (cell.x * CELL) + 'px';
       d.style.top = (cell.y * CELL) + 'px';
-      d.innerHTML = `<div class="rmark">${cell.room.mark}</div><div class="rname">${cell.room.name}</div>`;
-      for (const dir of ['N', 'S', 'E', 'W']) {
-        if (cell.exits[dir]) {
-          const doorEl = document.createElement('div');
-          doorEl.className = 'door ' + dir;
-          d.appendChild(doorEl);
-        }
-      }
+      d.innerHTML = `<div class="rart">${roomArtSVG(cell.room.key === 'genkan' ? 'genkan' : cell.room.key, cell.room.warped)}</div>` +
+        `<div class="rname">${cell.room.name}</div>`;
       board.appendChild(d);
     }
-    // ghost cells for unexplored exits from the current room
-    if (!S.over && !S.enc) {
-      const cur = here();
-      for (const dir of ['N', 'S', 'E', 'W']) {
-        if (!cur.exits[dir]) continue;
-        const [dx, dy] = DIRS[dir];
-        const nx = S.pos.x + dx, ny = S.pos.y + dy;
-        if (cellAt(nx, ny)) continue;
-        const g = document.createElement('div');
-        g.className = 'ghost';
-        g.style.left = (nx * CELL) + 'px';
-        g.style.top = (ny * CELL) + 'px';
-        g.textContent = '……';
-        g.addEventListener('click', () => tryMove(dir));
-        board.appendChild(g);
-      }
-    }
-    // player marker
     const m = document.createElement('div');
     m.id = 'marker';
     m.textContent = S.char.name[3] || S.char.name[0];
@@ -841,16 +1128,18 @@
   }
   function centerOnPlayer(smooth) {
     const wrap = $('board-wrap');
-    const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
-    view.ox = cx - (S.pos.x * CELL + 60) * view.scale;
-    view.oy = cy - (S.pos.y * CELL + 60) * view.scale;
+    view.ox = wrap.clientWidth / 2 - (S.pos.x * CELL + 60) * view.scale;
+    view.oy = wrap.clientHeight / 2 - 60 - (S.pos.y * CELL + 60) * view.scale;
     $('board').style.transition = smooth ? 'transform 0.35s ease' : 'none';
     applyView();
   }
   (function setupPan() {
     const wrap = $('board-wrap');
     let dragging = false, lx = 0, ly = 0;
-    wrap.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+    wrap.addEventListener('pointerdown', e => {
+      if (e.target.closest('.offer')) return;
+      dragging = true; lx = e.clientX; ly = e.clientY;
+    });
     window.addEventListener('pointermove', e => {
       if (!dragging) return;
       $('board').style.transition = 'none';
@@ -861,14 +1150,13 @@
     window.addEventListener('pointerup', () => { dragging = false; });
     wrap.addEventListener('wheel', e => {
       e.preventDefault();
-      const ns = clamp(view.scale * (e.deltaY < 0 ? 1.1 : 0.9), 0.4, 1.6);
-      view.scale = ns;
+      view.scale = clamp(view.scale * (e.deltaY < 0 ? 1.1 : 0.9), 0.35, 1.6);
       $('board').style.transition = 'none';
       applyView();
     }, { passive: false });
   })();
 
-  // ================= screens & title UI =================
+  // ================= screens & title =================
   function showScreen(name) {
     $('screen-title').hidden = name !== 'title';
     $('screen-game').hidden = name !== 'game';
@@ -882,8 +1170,9 @@
     CHARS.forEach((c, i) => {
       const d = document.createElement('div');
       d.className = 'char-card' + (i === selChar ? ' sel' : '');
-      d.innerHTML = `<h3>${c.name}</h3><div class="cdesc">${c.desc}</div>` +
-        `<div class="cstats">体力 ${'●'.repeat(c.hp)}<br>気力 ${'◆'.repeat(c.mp)}<br>腕力${c.str} 敏捷${c.agi} 直感${c.int}</div>` +
+      d.innerHTML = `<div class="cportrait">${portraitSVG(c.look)}</div>` +
+        `<h3>${c.name}</h3><div class="cdesc">${c.desc}</div>` +
+        `<div class="cstats">体力 ${'●'.repeat(c.hp)}  正気度 ${'◆'.repeat(c.mp)}<br>腕力${c.str} 敏捷${c.agi} 直感${c.int}</div>` +
         `<div class="cab">${c.abilityText}</div>`;
       d.addEventListener('click', () => { selChar = i; buildTitle(); });
       row.appendChild(d);
@@ -902,21 +1191,20 @@
   $('startBtn').addEventListener('click', () => newGame(selChar, selDiff));
   $('againBtn').addEventListener('click', () => { showScreen('title'); buildTitle(); });
 
-  // ================= debug hooks (automated tests) =================
+  // ================= debug hooks =================
   window.__game = {
     newGame: (c, d) => newGame(c, d),
     state: () => S && {
-      hp: S.hp, mp: S.mp, turn: S.turn, over: S.over, won: S.won,
-      enc: !!S.enc, rooms: S.roomsExplored, items: S.items.map(i => i.key),
-      pos: { ...S.pos },
+      hp: S.hp, mp: S.mp, turn: S.turn, over: S.over, won: S.won, ending: S.ending,
+      enc: !!S.enc, student: !!S.student, rooms: S.roomsExplored,
+      items: S.items.map(i => i.key), goals: { ...S.goals },
+      here: here().room.key, pos: { ...S.pos },
     },
-    legalMoves: () => {
-      if (!S || S.over || S.enc) return [];
-      return ['N', 'S', 'E', 'W'].filter(d => here().exits[d]);
-    },
-    move: d => tryMove(d),
+    offers: () => S ? S.offers.map((o, i) => ({ i, label: o.label, blocked: o.blocked, type: o.type && o.type.key })) : [],
+    choose: i => chooseOffer(i),
     rest: k => doRest(k),
     search: () => doSearch(),
+    dismissStudent: () => dismissStudent(),
     encounterOptions: () => (S && S.enc) ? ['fight', 'flee', 'hide'].filter(k => S.enc[k] !== null) : [],
     encounterAct: k => resolveEncounter(k),
     useItem: i => useItem(i),
