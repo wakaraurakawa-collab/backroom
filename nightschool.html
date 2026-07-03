@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>夜の学校(仮)</title>
+<style>
+  :root {
+    --bg: #070c09;
+    --panel: #0d1510;
+    --panel2: #121d16;
+    --ink: #c8d8cc;
+    --dim: #74857a;
+    --glow: #7fd8b0;
+    --glow-dim: #3d6b55;
+    --danger: #d97f7f;
+    --warn: #d8c37f;
+    --line: #23342a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "BIZ UDMincho", serif;
+    font-size: 14px;
+  }
+  button {
+    font-family: inherit; color: var(--ink); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 12px; cursor: pointer; font-size: 13px;
+  }
+  button:hover:not(:disabled) { border-color: var(--glow-dim); color: var(--glow); }
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  .screen { position: fixed; inset: 0; overflow: auto; }
+  [hidden] { display: none !important; }
+
+  /* ---------- title ---------- */
+  #screen-title { display: flex; flex-direction: column; align-items: center; padding: 40px 16px; gap: 22px; }
+  #screen-title h1 {
+    font-size: 34px; letter-spacing: 0.35em; color: var(--glow);
+    text-shadow: 0 0 18px rgba(127, 216, 176, 0.35);
+    font-weight: 500;
+  }
+  #screen-title .sub { color: var(--dim); letter-spacing: 0.2em; font-size: 12px; }
+  .char-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
+  .char-card {
+    width: 210px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px; cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .char-card:hover { border-color: var(--glow-dim); }
+  .char-card.sel {
+    border-color: var(--glow);
+    box-shadow: 0 0 16px rgba(127, 216, 176, 0.22);
+  }
+  .char-card h3 { font-size: 17px; color: var(--glow); margin-bottom: 2px; font-weight: 500; }
+  .char-card .cdesc { color: var(--dim); font-size: 12px; min-height: 34px; margin-bottom: 8px; }
+  .char-card .cstats { font-size: 12px; line-height: 1.7; }
+  .char-card .cab { margin-top: 6px; font-size: 11px; color: var(--warn); }
+  .diff-row { display: flex; gap: 10px; }
+  .diff-row button.sel { border-color: var(--glow); color: var(--glow); }
+  #startBtn { font-size: 16px; padding: 12px 46px; letter-spacing: 0.3em; }
+
+  /* ---------- game ---------- */
+  #screen-game { display: flex; }
+  #board-wrap {
+    flex: 1; position: relative; overflow: hidden; cursor: grab;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(127,216,176,0.05), transparent 60%),
+      var(--bg);
+  }
+  #board-wrap:active { cursor: grabbing; }
+  #board { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+  .room {
+    position: absolute; width: 120px; height: 120px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; user-select: none;
+  }
+  .room .rname { font-size: 14px; letter-spacing: 0.15em; }
+  .room .rmark { font-size: 22px; color: var(--glow-dim); }
+  .room.cur { border-color: var(--glow); box-shadow: 0 0 18px rgba(127, 216, 176, 0.25); }
+  .room.visited-old { opacity: 0.75; }
+  .room.warped { border-color: #4a3d6b; }
+  .room.warped .rmark { color: #9d7bd8; }
+  .door { position: absolute; background: var(--glow-dim); border-radius: 2px; }
+  .door.N { top: -2px; left: 46px; width: 28px; height: 4px; }
+  .door.S { bottom: -2px; left: 46px; width: 28px; height: 4px; }
+  .door.W { left: -2px; top: 46px; width: 4px; height: 28px; }
+  .door.E { right: -2px; top: 46px; width: 4px; height: 28px; }
+  .room.cur .door { background: var(--glow); }
+
+  .ghost {
+    position: absolute; width: 120px; height: 120px;
+    border: 1px dashed var(--glow-dim); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--glow-dim); font-size: 12px; letter-spacing: 0.2em;
+    cursor: pointer; background: rgba(127, 216, 176, 0.03);
+  }
+  .ghost:hover { border-color: var(--glow); color: var(--glow); }
+
+  #marker {
+    position: absolute; width: 30px; height: 30px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #dff5e8, var(--glow) 60%, var(--glow-dim));
+    box-shadow: 0 0 14px rgba(127, 216, 176, 0.8);
+    display: flex; align-items: center; justify-content: center;
+    color: #0a221a; font-size: 13px; font-weight: 700;
+    pointer-events: none; transition: left 0.35s ease, top 0.35s ease;
+    z-index: 5;
+  }
+
+  /* ---------- side panel ---------- */
+  #side {
+    width: 300px; background: var(--panel); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column; padding: 14px; gap: 10px;
+    overflow-y: auto;
+  }
+  #side h2 { font-size: 16px; color: var(--glow); font-weight: 500; letter-spacing: 0.1em; }
+  .pips { letter-spacing: 3px; font-size: 15px; }
+  .pips .on { color: var(--glow); }
+  .pips.hp .on { color: var(--danger); }
+  .pips .off { color: #2a382f; }
+  .srow { display: flex; justify-content: space-between; font-size: 13px; }
+  .srow .lbl { color: var(--dim); }
+  #phaseBar { height: 6px; background: #1a241e; border-radius: 999px; overflow: hidden; }
+  #phaseFill { height: 100%; background: linear-gradient(90deg, var(--glow-dim), var(--glow)); width: 0%; }
+  #phaseName { font-size: 12px; color: var(--warn); letter-spacing: 0.2em; }
+
+  #itemBox { display: flex; flex-direction: column; gap: 5px; }
+  .item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 8px; font-size: 12px;
+  }
+  .item .idesc { color: var(--dim); font-size: 11px; }
+  .item button { padding: 2px 8px; font-size: 11px; }
+
+  #actionBox { display: flex; flex-direction: column; gap: 6px; }
+  #actionBox .arow { display: flex; gap: 6px; }
+  #actionBox .arow button { flex: 1; }
+
+  #encBox {
+    border: 1px solid #4a3030; background: #170f0f; border-radius: 8px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  #encBox .ename { color: var(--danger); font-size: 15px; letter-spacing: 0.15em; }
+  #encBox .eline { color: var(--dim); font-size: 12px; }
+
+  #log {
+    flex: 1; min-height: 120px; overflow-y: auto; font-size: 12px; line-height: 1.75;
+    border-top: 1px solid var(--line); padding-top: 8px; color: var(--dim);
+  }
+  #log .l-good { color: var(--glow); }
+  #log .l-bad { color: var(--danger); }
+  #log .l-warn { color: var(--warn); }
+  #log .l-roll { color: #8fa3b8; }
+
+  /* ---------- result ---------- */
+  #screen-result {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; padding: 20px;
+  }
+  #resultTitle { font-size: 30px; letter-spacing: 0.3em; color: var(--glow); font-weight: 500; }
+  #resultTitle.bad { color: var(--danger); }
+  #resultBody { color: var(--dim); line-height: 2; max-width: 560px; }
+  #resultStats { font-size: 13px; color: var(--ink); line-height: 1.9; }
+</style>
+</head>
+<body>
+
+<!-- ======== title ======== -->
+<div class="screen" id="screen-title">
+  <h1>夜の学校</h1>
+  <div class="sub">夕方以降、別世界の教室につながる廊下が現れる。</div>
+  <div class="char-row" id="charRow"></div>
+  <div class="diff-row" id="diffRow"></div>
+  <button id="startBtn">入 校</button>
+  <div class="sub">夜明けまで生き延びれば、帰れる。たぶん。</div>
+</div>
+
+<!-- ======== game ======== -->
+<div class="screen" id="screen-game" hidden>
+  <div id="board-wrap"><div id="board"></div></div>
+  <aside id="side">
+    <h2 id="pName"></h2>
+    <div class="srow"><span class="lbl">体力</span><span class="pips hp" id="hpPips"></span></div>
+    <div class="srow"><span class="lbl">気力</span><span class="pips" id="mpPips"></span></div>
+    <div class="srow"><span class="lbl">腕力 / 敏捷 / 直感</span><span id="statLine"></span></div>
+    <div class="srow"><span class="lbl">現在地</span><span id="hereName"></span></div>
+    <div>
+      <div class="srow"><span class="lbl">夜明けまで</span><span id="turnLine"></span></div>
+      <div id="phaseBar"><div id="phaseFill"></div></div>
+      <div id="phaseName"></div>
+    </div>
+    <div id="actionBox"></div>
+    <div id="encBox" hidden></div>
+    <div>
+      <div class="srow"><span class="lbl">持ち物 (最大4)</span></div>
+      <div id="itemBox"></div>
+    </div>
+    <div id="log"></div>
+  </aside>
+</div>
+
+<!-- ======== result ======== -->
+<div class="screen" id="screen-result" hidden>
+  <div id="resultTitle"></div>
+  <div id="resultBody"></div>
+  <div id="resultStats"></div>
+  <button id="againBtn">もう一度、あの夜へ</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const rand = (a, b) => Math.random() * (b - a) + a;
+  const ri = (a, b) => Math.floor(rand(a, b + 1)); // inclusive int
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // ================= data =================
+  const CHARS = [
+    { id: 'shino', name: '真城 詩乃', desc: '無口な優等生。長い黒髪。よく視ている。',
+      hp: 4, mp: 6, str: 0, agi: 1, int: 3,
+      ability: 'observe', abilityText: '固有: 探索でものを見つけやすい' },
+    { id: 'hina', name: '朝倉 ひな', desc: '快活なムードメーカー。陸上部。足だけは自信がある。',
+      hp: 5, mp: 4, str: 1, agi: 3, int: 1,
+      ability: 'runner', abilityText: '固有: 逃走に成功すると気力+1' },
+    { id: 'ruka', name: '白瀬 ルカ', desc: '眠そうな転校生。写真部。夜のほうが調子がいい。',
+      hp: 4, mp: 5, str: 0, agi: 2, int: 2,
+      ability: 'nightowl', abilityText: '固有: 丑三つ時の気力減少を受けない' },
+    { id: 'mio', name: '黒峰 澪', desc: '不良っぽく見える世話焼き。手芸部。腕っぷしが強い。',
+      hp: 6, mp: 3, str: 3, agi: 1, int: 1,
+      ability: 'fighter', abilityText: '固有: 戦って勝つと気力+1' },
+  ];
+
+  const DIFFS = [
+    { name: '短い夜', turns: 12, encMul: 1.0 },
+    { name: '長い夜', turns: 18, encMul: 1.0 },
+    { name: '明けない夜', turns: 24, encMul: 1.25 },
+  ];
+
+  // eventW: relative weights {none, item, enemy, student, hazard}
+  const ROOMS = [
+    { key: 'roka',    name: '廊下',     mark: '〓', w: 20, exMin: 2, exMax: 3, eventW: { none: 50, item: 5,  enemy: 18, student: 15, hazard: 12 } },
+    { key: 'kyou',    name: '教室',     mark: '机', w: 18, exMin: 1, exMax: 2, eventW: { none: 35, item: 25, enemy: 18, student: 12, hazard: 10 } },
+    { key: 'kaidan',  name: '階段',     mark: '段', w: 8,  exMin: 2, exMax: 3, eventW: { none: 45, item: 5,  enemy: 18, student: 12, hazard: 20 } },
+    { key: 'watari',  name: '渡り廊下', mark: '橋', w: 6,  exMin: 2, exMax: 2, eventW: { none: 60, item: 5,  enemy: 15, student: 10, hazard: 10 } },
+    { key: 'tosho',   name: '図書室',   mark: '書', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 35, enemy: 10, student: 15, hazard: 10 } },
+    { key: 'hoken',   name: '保健室',   mark: '十', w: 4,  exMin: 1, exMax: 2, eventW: { none: 55, item: 30, enemy: 5,  student: 8,  hazard: 2 } },
+    { key: 'kateika', name: '家庭科室', mark: '鍋', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 40, enemy: 15, student: 8,  hazard: 7 } },
+    { key: 'rika',    name: '理科室',   mark: '瓶', w: 5,  exMin: 1, exMax: 2, eventW: { none: 22, item: 18, enemy: 35, student: 5,  hazard: 20 } },
+    { key: 'ongaku',  name: '音楽室',   mark: '♪', w: 5,  exMin: 1, exMax: 2, eventW: { none: 30, item: 12, enemy: 30, student: 10, hazard: 18 } },
+    { key: 'taiiku',  name: '体育館',   mark: '球', w: 4,  exMin: 2, exMax: 3, eventW: { none: 30, item: 15, enemy: 30, student: 10, hazard: 15 } },
+    { key: 'yuganda', name: '歪んだ教室', mark: '∵', w: 6, exMin: 1, exMax: 3, eventW: { none: 15, item: 22, enemy: 40, student: 8,  hazard: 15 }, warped: true },
+  ];
+
+  // fight=str / flee=agi / hide=int, target = 2d6+stat needed. null = impossible.
+  const ENEMIES = [
+    { name: '徘徊するもの', line: '廊下の奥、背の高い影が、ゆっくりとこちらに顔を向けた。',
+      fight: 9, flee: 8, hide: 8, failFx: { hp: 2 } },
+    { name: '校内放送', line: '『……繰り返す。下校時刻は、』 スピーカーはとうに壊れているはずだ。',
+      fight: null, flee: 8, hide: 7, failFx: { mp: 2 } },
+    { name: '理科室の標本', line: 'ホルマリンの瓶が、内側から軽く叩かれている。',
+      fight: 7, flee: 9, hide: 8, failFx: { hp: 1, mp: 1 } },
+    { name: '足音だけの生徒', line: '上履きの足音が近づいてくる。姿は、ない。',
+      fight: null, flee: 7, hide: 7, failFx: { mp: 2 } },
+    { name: '窓のそとのかお', line: 'ここは三階のはずだった。窓の外に、顔がある。',
+      fight: null, flee: null, hide: 8, failFx: { mp: 1 } },
+    { name: '用務員だったもの', line: 'モップの音。低い鼻歌。振り向いてはいけない気がする。',
+      fight: 8, flee: 7, hide: 9, failFx: { hp: 2 } },
+  ];
+
+  const HAZARDS = [
+    { name: '崩れた床', stat: 'agi', target: 8, failFx: { hp: 1 }, line: '床板が口を開けている。' },
+    { name: '散らばったガラス', stat: 'int', target: 8, failFx: { hp: 1 }, line: '月明かりに、破片が光っている。' },
+    { name: '鳴り止まないチャイム', stat: 'int', target: 8, failFx: { mp: 1 }, line: 'チャイムが、ずっと鳴っている。' },
+    { name: '冷たい暗闇', stat: 'int', target: 8, failFx: { mp: 1 }, line: 'この暗さは、ただの夜じゃない。' },
+  ];
+
+  const ITEMS = [
+    { key: 'light',   name: '懐中電灯',       type: 'passive', stat: 'int', desc: '直感+1' },
+    { key: 'shinai',  name: '竹刀',           type: 'passive', stat: 'str', desc: '腕力+1' },
+    { key: 'shoes',   name: '運動靴',         type: 'passive', stat: 'agi', desc: '敏捷+1' },
+    { key: 'omamori', name: '校章のお守り',   type: 'auto',    desc: '失敗を1度だけ庇ってくれる' },
+    { key: 'aid',     name: '救急セット',     type: 'use',     desc: '体力+2' },
+    { key: 'choco',   name: 'チョコレート',   type: 'use',     desc: '気力+2' },
+    { key: 'salt',    name: '塩',             type: 'use',     desc: '遭遇中: やり過ごす' },
+    { key: 'camera',  name: '使い捨てカメラ', type: 'use',     desc: '次に引く部屋を先に見る' },
+  ];
+  const ITEM_DROP = ['light', 'shinai', 'shoes', 'omamori', 'aid', 'aid', 'choco', 'choco', 'salt', 'camera'];
+
+  const STUDENT_NAMES = ['二年の先輩', '同じクラスの子', '知らない制服の子', '下級生', '眼鏡の子', '三つ編みの子'];
+  const STUDENT_EVENTS = [
+    { w: 35, mp: 1, line: '少しだけ話した。「わたし、ここの生徒だよ。ずっと前から」……励まされた気がする。' },
+    { w: 25, item: true, line: '「これ、あげる。わたしはもう、いらないから」' },
+    { w: 20, mp: 1, line: '一緒に歩いてくれた。角のところで、いつの間にかいなくなっていた。' },
+    { w: 20, mp: -1, line: '笑っている。ずっと笑っている。この学校の生徒は、こんなに多かっただろうか。' },
+  ];
+
+  const FLAVOR = [
+    '黒板に、明日の日直の名前が書いてある。誰も知らない名前だ。',
+    '掲示板のプリントの文字が、読めそうで読めない。',
+    '外はまだ暗い。月がふたつあるようにも見える。',
+    '誰かの上履きが、きちんと揃えて置いてある。',
+    '遠くで、誰かが廊下を走る音がした。',
+    '時計の針が、逆に一目盛り動いた。',
+    'カーテンが揺れている。窓は閉まっている。',
+    '机の中に、書きかけの手紙。「夜明けまで、って決めたから」',
+    '蛇口から一滴。水音がやけに大きく響く。',
+    'ここの空気は少しだけ甘い。アーモンドみたいな。',
+  ];
+
+  const PHASES = [
+    { name: '宵',       until: 0.25, encMul: 0.8 },
+    { name: '深夜',     until: 0.6,  encMul: 1.0 },
+    { name: '丑三つ時', until: 0.9,  encMul: 1.6 },
+    { name: '夜明け前', until: 1.01, encMul: 1.2 },
+  ];
+
+  const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+  const OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
+  const DIR_LABEL = { N: '北', S: '南', E: '東', W: '西' };
+  const CELL = 148; // grid step (120px card + gap)
+
+  // ================= state =================
+  let S = null;
+
+  function weightedPick(list, wOf) {
+    let total = 0;
+    for (const it of list) total += wOf(it);
+    let r = Math.random() * total;
+    for (const it of list) {
+      r -= wOf(it);
+      if (r < 0) return it;
+    }
+    return list[list.length - 1];
+  }
+
+  function newGame(charIdx, diffIdx) {
+    const c = CHARS[charIdx];
+    S = {
+      char: c, diff: DIFFS[diffIdx],
+      hp: c.hp, mp: c.mp, maxHp: c.hp, maxMp: c.mp,
+      turn: 0,
+      items: [],
+      map: new Map(), edges: new Set(),
+      pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 },
+      enc: null, pendingEnd: false,
+      peeked: null,
+      drainCounter: 0,
+      over: false, won: false,
+      roomsExplored: 1,
+      omamoriUsed: 0,
+    };
+    // start: entrance with all four doors
+    S.map.set('0,0', {
+      x: 0, y: 0, room: { key: 'genkan', name: '昇降口', mark: '扉', warped: false },
+      exits: { N: true, S: true, E: true, W: true }, searched: false,
+    });
+    $('log').innerHTML = '';
+    log(`${c.name}。放課後の校舎に、まだ残っている。`, 'l-warn');
+    log(`${S.diff.name} — 夜明けまで ${S.diff.turns} ターン。`);
+    log('昇降口の扉は、もう開かない。');
+    showScreen('game');
+    renderAll();
+    centerOnPlayer(false);
+  }
+
+  // ================= helpers =================
+  const key = (x, y) => x + ',' + y;
+  const edgeKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+  const cellAt = (x, y) => S.map.get(key(x, y)) || null;
+  const here = () => cellAt(S.pos.x, S.pos.y);
+
+  function phase() {
+    const p = S.turn / S.diff.turns;
+    for (let i = 0; i < PHASES.length; i++) if (p < PHASES[i].until) return { ...PHASES[i], idx: i };
+    return { ...PHASES[3], idx: 3 };
+  }
+
+  function statOf(kind) {
+    const base = kind === 'str' ? S.char.str : kind === 'agi' ? S.char.agi : S.char.int;
+    let bonus = 0;
+    for (const it of S.items) if (it.type === 'passive' && it.stat === kind) bonus++;
+    return base + bonus;
+  }
+
+  function roll2d6() { return ri(1, 6) + ri(1, 6); }
+
+  // check with omamori auto-save. returns true on (possibly saved) success
+  function check(kind, target, label) {
+    const st = statOf(kind);
+    const dice = roll2d6();
+    const total = dice + st;
+    const ok = total >= target;
+    log(`${label} — 2d6(${dice})+${st} = ${total} / 目標${target} … ${ok ? '成功' : '失敗'}`, 'l-roll');
+    if (!ok) {
+      const oi = S.items.findIndex(it => it.key === 'omamori');
+      if (oi !== -1) {
+        S.items.splice(oi, 1);
+        S.omamoriUsed++;
+        log('お守りが、音もなく砕けた。悪いものが逸れていく。', 'l-good');
+        return true;
+      }
+    }
+    return ok;
+  }
+
+  function damage(fx) {
+    if (fx.hp) { S.hp -= fx.hp; log(`体力が ${fx.hp} 削られた。`, 'l-bad'); }
+    if (fx.mp) { S.mp -= fx.mp; log(`気力が ${fx.mp} すり減った。`, 'l-bad'); }
+    checkDead();
+  }
+
+  function heal(hp, mp) {
+    if (hp) S.hp = clamp(S.hp + hp, 0, S.maxHp);
+    if (mp) S.mp = clamp(S.mp + mp, 0, S.maxMp);
+  }
+
+  function checkDead() {
+    if (S.over) return;
+    if (S.hp <= 0) endGame(false, 'hp');
+    else if (S.mp <= 0) endGame(false, 'mp');
+  }
+
+  function giveItem(itKey) {
+    const k = itKey || pick(ITEM_DROP);
+    const proto = ITEMS.find(i => i.key === k);
+    if (S.items.length >= 4) {
+      log(`${proto.name} を見つけたが、これ以上は持ちきれない。そっと置いていく。`, 'l-warn');
+      return;
+    }
+    S.items.push({ ...proto });
+    log(`${proto.name} を手に入れた。(${proto.desc})`, 'l-good');
+  }
+
+  // ================= rooms & map =================
+  function drawRoomType() {
+    if (S.peeked) { const r = S.peeked; S.peeked = null; return r; }
+    return weightedPick(ROOMS, r => r.w);
+  }
+
+  function placeNewRoom(x, y, enterDir) {
+    const type = drawRoomType();
+    const exits = { N: false, S: false, E: false, W: false };
+    exits[OPP[enterDir]] = true; // the door you came through always exists
+    const extra = ri(type.exMin, type.exMax) - 1;
+    const others = ['N', 'S', 'E', 'W'].filter(d => d !== OPP[enterDir]);
+    for (let i = 0; i < extra; i++) {
+      const d = others.splice(Math.floor(Math.random() * others.length), 1)[0];
+      if (d) exits[d] = true;
+    }
+    const cell = { x, y, room: type, exits, searched: false };
+    S.map.set(key(x, y), cell);
+    S.roomsExplored++;
+    return cell;
+  }
+
+  // ================= events =================
+  function arrivalEvent(cell, isNew) {
+    const ph = phase();
+    if (!isNew) {
+      // revisits are mostly quiet
+      if (Math.random() < 0.10 * ph.encMul * S.diff.encMul) startEncounter();
+      return;
+    }
+    const w = { ...cell.room.eventW };
+    w.enemy = Math.round(w.enemy * ph.encMul * S.diff.encMul);
+    const kind = weightedPick(Object.keys(w), k => w[k]);
+    if (kind === 'none') {
+      log(pick(FLAVOR));
+    } else if (kind === 'item') {
+      giveItem();
+    } else if (kind === 'enemy') {
+      startEncounter();
+    } else if (kind === 'student') {
+      studentEvent();
+    } else {
+      hazardEvent();
+    }
+  }
+
+  function studentEvent() {
+    const who = pick(STUDENT_NAMES);
+    const ev = weightedPick(STUDENT_EVENTS, e => e.w);
+    log(`${who}がいた。`, 'l-warn');
+    log(ev.line);
+    if (ev.item) giveItem();
+    if (ev.mp) {
+      heal(0, Math.max(0, ev.mp));
+      if (ev.mp < 0) damage({ mp: -ev.mp });
+      else log('気力が少し戻った。', 'l-good');
+    }
+  }
+
+  function hazardEvent() {
+    const hz = pick(HAZARDS);
+    log(`【${hz.name}】 ${hz.line}`, 'l-warn');
+    if (!check(hz.stat, hz.target, '回避')) damage(hz.failFx);
+    else log('なんとかやり過ごした。');
+  }
+
+  function startEncounter() {
+    const e = pick(ENEMIES);
+    S.enc = e;
+    log(`【遭遇】 ${e.name}`, 'l-bad');
+    log(e.line);
+  }
+
+  function resolveEncounter(action) {
+    const e = S.enc;
+    const kindMap = { fight: 'str', flee: 'agi', hide: 'int' };
+    const labelMap = { fight: '戦う', flee: '逃げる', hide: '隠れる' };
+    const target = e[action];
+    const ok = check(kindMap[action], target, labelMap[action]);
+    S.enc = null;
+    // the deeper the night, the harder they hit
+    const deep = phase().idx >= 2;
+    const fx = { ...e.failFx };
+    if (deep) { if (fx.hp) fx.hp += 1; else if (fx.mp) fx.mp += 1; }
+    if (ok) {
+      if (action === 'fight') {
+        log('追い払った。手が少し震えている。', 'l-good');
+        if (S.char.ability === 'fighter') { heal(0, 1); log('澪「……なんだ、大したことないじゃん」 気力+1', 'l-good'); }
+      } else if (action === 'flee') {
+        log('走った。振り返らなかった。', 'l-good');
+        if (S.char.ability === 'runner') { heal(0, 1); log('ひな「陸上部なめないでよね!」 気力+1', 'l-good'); }
+        // slip back to the previous room
+        const back = cellAt(S.prevPos.x, S.prevPos.y);
+        if (back) { S.pos = { ...S.prevPos }; log(`${back.room.name} まで戻ってきた。`); }
+      } else {
+        log('息を殺す。……行った、みたいだ。', 'l-good');
+      }
+    } else {
+      damage(fx);
+      if (!S.over) log('それでも、なんとか離れられた。');
+    }
+    finishTurnAfterEncounter();
+  }
+
+  function useSaltOnEncounter() {
+    const i = S.items.findIndex(it => it.key === 'salt');
+    if (i === -1 || !S.enc) return;
+    S.items.splice(i, 1);
+    log('塩を撒いた。空気が、すっと軽くなる。', 'l-good');
+    S.enc = null;
+    finishTurnAfterEncounter();
+  }
+
+  function finishTurnAfterEncounter() {
+    if (S.over) { renderAll(); return; }
+    if (S.pendingEnd) { S.pendingEnd = false; endTurn(); }
+    else renderAll();
+  }
+
+  // ================= actions =================
+  function tryMove(dir) {
+    if (S.over || S.enc) return;
+    const cur = here();
+    if (!cur.exits[dir]) return;
+    const [dx, dy] = DIRS[dir];
+    const nx = S.pos.x + dx, ny = S.pos.y + dy;
+    const existing = cellAt(nx, ny);
+    S.prevPos = { ...S.pos };
+    if (!existing) {
+      const cell = placeNewRoom(nx, ny, dir);
+      S.edges.add(edgeKey(key(S.pos.x, S.pos.y), key(nx, ny)));
+      S.pos = { x: nx, y: ny };
+      log(`${DIR_LABEL[dir]}へ。扉の先は—— ${cell.room.name}。`);
+      S.pendingEnd = true;
+      arrivalEvent(cell, true);
+    } else {
+      const ek = edgeKey(key(S.pos.x, S.pos.y), key(nx, ny));
+      const connectable = S.edges.has(ek) || existing.exits[OPP[dir]];
+      if (!connectable) { log('その扉は、こちらからは開かないようだ。', 'l-warn'); return; }
+      S.edges.add(ek);
+      S.pos = { x: nx, y: ny };
+      log(`${existing.room.name} に戻った。`);
+      S.pendingEnd = true;
+      arrivalEvent(existing, false);
+    }
+    if (!S.enc && S.pendingEnd) { S.pendingEnd = false; endTurn(); }
+    else renderAll();
+    centerOnPlayer(true);
+  }
+
+  function doRest(kind) {
+    if (S.over || S.enc) return;
+    const cur = here();
+    if (kind === 'hp') {
+      const amount = cur.room.key === 'hoken' ? 2 : 1;
+      heal(amount, 0);
+      log(cur.room.key === 'hoken' ? '保健室のベッドで手当てをした。体力+2' : '手当てをした。体力+1', 'l-good');
+    } else {
+      heal(0, 1);
+      log('深呼吸。まだ大丈夫。気力+1', 'l-good');
+    }
+    S.pendingEnd = true;
+    if (Math.random() < 0.28 * phase().encMul * S.diff.encMul) {
+      log('物音がした。', 'l-warn');
+      startEncounter();
+    }
+    if (!S.enc) { S.pendingEnd = false; endTurn(); }
+    else renderAll();
+  }
+
+  function doSearch() {
+    if (S.over || S.enc) return;
+    const cur = here();
+    let itemP = cur.searched ? 0.10 : 0.40;
+    if (cur.room.key === 'tosho' || cur.room.key === 'kateika') itemP += 0.15;
+    if (S.char.ability === 'observe') itemP += 0.12;
+    cur.searched = true;
+    S.pendingEnd = true;
+    const r = Math.random();
+    if (r < itemP) {
+      giveItem();
+    } else if (r < itemP + 0.22 * phase().encMul) {
+      log('探しものをしていて、気づくのが遅れた。', 'l-warn');
+      startEncounter();
+    } else {
+      log(pick(FLAVOR));
+    }
+    if (!S.enc) { S.pendingEnd = false; endTurn(); }
+    else renderAll();
+  }
+
+  function useItem(idx) {
+    if (S.over) return;
+    const it = S.items[idx];
+    if (!it || it.type !== 'use') return;
+    if (it.key === 'salt') { useSaltOnEncounter(); return; }
+    if (S.enc) return; // other consumables not usable mid-encounter
+    if (it.key === 'aid') { S.items.splice(idx, 1); heal(2, 0); log('救急セットで手当てをした。体力+2', 'l-good'); }
+    else if (it.key === 'choco') { S.items.splice(idx, 1); heal(0, 2); log('チョコレートを食べた。甘い。気力+2', 'l-good'); }
+    else if (it.key === 'camera') {
+      S.items.splice(idx, 1);
+      S.peeked = weightedPick(ROOMS, r => r.w);
+      log(`カメラのフラッシュ。写真には次の部屋が写っていた—— ${S.peeked.name}。`, 'l-good');
+    }
+    renderAll();
+  }
+
+  function endTurn() {
+    if (S.over) return;
+    S.turn++;
+    const ph = phase();
+    if (ph.idx === 2 && S.char.ability !== 'nightowl') {
+      S.drainCounter++;
+      if (S.drainCounter % 3 === 0) {
+        S.mp -= 1;
+        log('丑三つ時。夜が、体温を奪っていく。気力-1', 'l-bad');
+        checkDead();
+      }
+    }
+    if (!S.over && S.turn >= S.diff.turns) { endGame(true); return; }
+    renderAll();
+  }
+
+  function endGame(won, cause) {
+    S.over = true; S.won = won;
+    renderAll();
+    setTimeout(() => {
+      const t = $('resultTitle'), b = $('resultBody'), st = $('resultStats');
+      if (won) {
+        t.textContent = '夜 明 け';
+        t.classList.remove('bad');
+        b.innerHTML = '窓の外が白み始める。チャイムが鳴った。今度のは、ちゃんと壊れていない音だ。<br>' +
+          '昇降口の扉は、当たり前みたいに開いた。<br>' +
+          `${S.char.name}は振り返らずに校門を出る。——教室のどこかで、誰かがまだ笑っている気がした。`;
+      } else {
+        t.textContent = cause === 'hp' ? '下 校 時 刻' : '転 入 届';
+        t.classList.add('bad');
+        b.innerHTML = cause === 'hp'
+          ? '膝から力が抜けて、冷たい床の感触も遠くなる。<br>遠くでチャイムが鳴っている。もう、どうでもいいような気がした。'
+          : `気がつくと、${S.char.name}は自分の席に座っていた。<br>「ずっと前からこの学校の生徒だった」——そう思うと、なんだか安心した。<br>この学校には、生徒がとても多い。`;
+      }
+      st.innerHTML = `探索した部屋: ${S.roomsExplored} / 生き延びたターン: ${S.turn} / ${S.diff.name}` +
+        (S.omamoriUsed ? ` / 砕けたお守り: ${S.omamoriUsed}` : '');
+      showScreen('result');
+    }, 900);
+  }
+
+  // ================= log =================
+  function log(text, cls) {
+    const el = document.createElement('div');
+    if (cls) el.className = cls;
+    el.textContent = text;
+    const box = $('log');
+    box.appendChild(el);
+    while (box.children.length > 80) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ================= rendering =================
+  function pips(v, max, hp) {
+    let s = '';
+    for (let i = 0; i < max; i++) s += `<span class="${i < v ? 'on' : 'off'}">${hp ? '●' : '◆'}</span>`;
+    return s;
+  }
+
+  function renderAll() {
+    if (!S) return;
+    $('pName').textContent = S.char.name;
+    $('hpPips').innerHTML = pips(Math.max(0, S.hp), S.maxHp, true);
+    $('mpPips').innerHTML = pips(Math.max(0, S.mp), S.maxMp, false);
+    $('statLine').textContent = `${statOf('str')} / ${statOf('agi')} / ${statOf('int')}`;
+    $('hereName').textContent = here().room.name;
+    const left = Math.max(0, S.diff.turns - S.turn);
+    $('turnLine').textContent = `${left} ターン`;
+    $('phaseFill').style.width = clamp(S.turn / S.diff.turns * 100, 0, 100) + '%';
+    $('phaseName').textContent = '— ' + phase().name + ' —';
+
+    // items
+    const ib = $('itemBox');
+    ib.innerHTML = '';
+    if (S.items.length === 0) {
+      const d = document.createElement('div');
+      d.className = 'item'; d.innerHTML = '<span class="idesc">なにも持っていない</span>';
+      ib.appendChild(d);
+    }
+    S.items.forEach((it, i) => {
+      const d = document.createElement('div');
+      d.className = 'item';
+      const usable = it.type === 'use' && (!S.enc || it.key === 'salt') && !S.over;
+      d.innerHTML = `<span>${it.name} <span class="idesc">${it.desc}</span></span>`;
+      if (it.type === 'use') {
+        const b = document.createElement('button');
+        b.textContent = '使う';
+        b.disabled = !usable;
+        b.addEventListener('click', () => useItem(i));
+        d.appendChild(b);
+      }
+      ib.appendChild(d);
+    });
+
+    // actions / encounter
+    const ab = $('actionBox'), eb = $('encBox');
+    if (S.enc) {
+      ab.innerHTML = '';
+      eb.hidden = false;
+      eb.innerHTML = `<div class="ename">${S.enc.name}</div><div class="eline">${S.enc.line}</div>`;
+      const row = document.createElement('div');
+      row.className = 'arow'; row.style.display = 'flex'; row.style.gap = '6px';
+      [['fight', '戦う'], ['flee', '逃げる'], ['hide', '隠れる']].forEach(([k, label]) => {
+        const b = document.createElement('button');
+        b.style.flex = '1';
+        const t = S.enc[k];
+        b.textContent = t === null ? label + '(無理だ)' : `${label} (${t}+)`;
+        b.disabled = t === null || S.over;
+        b.addEventListener('click', () => resolveEncounter(k));
+        row.appendChild(b);
+      });
+      eb.appendChild(row);
+    } else {
+      eb.hidden = true;
+      ab.innerHTML = '';
+      const cur = here();
+      const moveRow = document.createElement('div');
+      moveRow.className = 'arow';
+      ['W', 'N', 'S', 'E'].forEach(d => {
+        const b = document.createElement('button');
+        const [dx, dy] = DIRS[d];
+        const target = cellAt(S.pos.x + dx, S.pos.y + dy);
+        b.textContent = DIR_LABEL[d] + (target ? `·${target.room.name}` : '·?');
+        b.disabled = !cur.exits[d] || S.over;
+        b.addEventListener('click', () => tryMove(d));
+        moveRow.appendChild(b);
+      });
+      ab.appendChild(moveRow);
+      const actRow = document.createElement('div');
+      actRow.className = 'arow';
+      const mk = (label, fn, dis) => {
+        const b = document.createElement('button');
+        b.textContent = label; b.disabled = !!dis || S.over;
+        b.addEventListener('click', fn);
+        actRow.appendChild(b);
+      };
+      mk('手当て(体力+' + (cur.room.key === 'hoken' ? 2 : 1) + ')', () => doRest('hp'), S.hp >= S.maxHp);
+      mk('深呼吸(気力+1)', () => doRest('mp'), S.mp >= S.maxMp);
+      mk('探索する', doSearch);
+      ab.appendChild(actRow);
+    }
+
+    renderBoard();
+  }
+
+  function renderBoard() {
+    const board = $('board');
+    board.innerHTML = '';
+    for (const cell of S.map.values()) {
+      const d = document.createElement('div');
+      d.className = 'room' + (cell.room.warped ? ' warped' : '');
+      if (cell.x === S.pos.x && cell.y === S.pos.y) d.classList.add('cur');
+      d.style.left = (cell.x * CELL) + 'px';
+      d.style.top = (cell.y * CELL) + 'px';
+      d.innerHTML = `<div class="rmark">${cell.room.mark}</div><div class="rname">${cell.room.name}</div>`;
+      for (const dir of ['N', 'S', 'E', 'W']) {
+        if (cell.exits[dir]) {
+          const doorEl = document.createElement('div');
+          doorEl.className = 'door ' + dir;
+          d.appendChild(doorEl);
+        }
+      }
+      board.appendChild(d);
+    }
+    // ghost cells for unexplored exits from the current room
+    if (!S.over && !S.enc) {
+      const cur = here();
+      for (const dir of ['N', 'S', 'E', 'W']) {
+        if (!cur.exits[dir]) continue;
+        const [dx, dy] = DIRS[dir];
+        const nx = S.pos.x + dx, ny = S.pos.y + dy;
+        if (cellAt(nx, ny)) continue;
+        const g = document.createElement('div');
+        g.className = 'ghost';
+        g.style.left = (nx * CELL) + 'px';
+        g.style.top = (ny * CELL) + 'px';
+        g.textContent = '……';
+        g.addEventListener('click', () => tryMove(dir));
+        board.appendChild(g);
+      }
+    }
+    // player marker
+    const m = document.createElement('div');
+    m.id = 'marker';
+    m.textContent = S.char.name[3] || S.char.name[0];
+    m.style.left = (S.pos.x * CELL + 45) + 'px';
+    m.style.top = (S.pos.y * CELL + 45) + 'px';
+    board.appendChild(m);
+  }
+
+  // ================= board pan / zoom =================
+  let view = { ox: 0, oy: 0, scale: 1 };
+  function applyView() {
+    $('board').style.transform = `translate(${view.ox}px, ${view.oy}px) scale(${view.scale})`;
+  }
+  function centerOnPlayer(smooth) {
+    const wrap = $('board-wrap');
+    const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
+    view.ox = cx - (S.pos.x * CELL + 60) * view.scale;
+    view.oy = cy - (S.pos.y * CELL + 60) * view.scale;
+    $('board').style.transition = smooth ? 'transform 0.35s ease' : 'none';
+    applyView();
+  }
+  (function setupPan() {
+    const wrap = $('board-wrap');
+    let dragging = false, lx = 0, ly = 0;
+    wrap.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+    window.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      $('board').style.transition = 'none';
+      view.ox += e.clientX - lx; view.oy += e.clientY - ly;
+      lx = e.clientX; ly = e.clientY;
+      applyView();
+    });
+    window.addEventListener('pointerup', () => { dragging = false; });
+    wrap.addEventListener('wheel', e => {
+      e.preventDefault();
+      const ns = clamp(view.scale * (e.deltaY < 0 ? 1.1 : 0.9), 0.4, 1.6);
+      view.scale = ns;
+      $('board').style.transition = 'none';
+      applyView();
+    }, { passive: false });
+  })();
+
+  // ================= screens & title UI =================
+  function showScreen(name) {
+    $('screen-title').hidden = name !== 'title';
+    $('screen-game').hidden = name !== 'game';
+    $('screen-result').hidden = name !== 'result';
+  }
+
+  let selChar = 0, selDiff = 1;
+  function buildTitle() {
+    const row = $('charRow');
+    row.innerHTML = '';
+    CHARS.forEach((c, i) => {
+      const d = document.createElement('div');
+      d.className = 'char-card' + (i === selChar ? ' sel' : '');
+      d.innerHTML = `<h3>${c.name}</h3><div class="cdesc">${c.desc}</div>` +
+        `<div class="cstats">体力 ${'●'.repeat(c.hp)}<br>気力 ${'◆'.repeat(c.mp)}<br>腕力${c.str} 敏捷${c.agi} 直感${c.int}</div>` +
+        `<div class="cab">${c.abilityText}</div>`;
+      d.addEventListener('click', () => { selChar = i; buildTitle(); });
+      row.appendChild(d);
+    });
+    const dr = $('diffRow');
+    dr.innerHTML = '';
+    DIFFS.forEach((df, i) => {
+      const b = document.createElement('button');
+      b.textContent = `${df.name} (${df.turns}ターン)`;
+      b.className = i === selDiff ? 'sel' : '';
+      b.addEventListener('click', () => { selDiff = i; buildTitle(); });
+      dr.appendChild(b);
+    });
+  }
+  buildTitle();
+  $('startBtn').addEventListener('click', () => newGame(selChar, selDiff));
+  $('againBtn').addEventListener('click', () => { showScreen('title'); buildTitle(); });
+
+  // ================= debug hooks (automated tests) =================
+  window.__game = {
+    newGame: (c, d) => newGame(c, d),
+    state: () => S && {
+      hp: S.hp, mp: S.mp, turn: S.turn, over: S.over, won: S.won,
+      enc: !!S.enc, rooms: S.roomsExplored, items: S.items.map(i => i.key),
+      pos: { ...S.pos },
+    },
+    legalMoves: () => {
+      if (!S || S.over || S.enc) return [];
+      return ['N', 'S', 'E', 'W'].filter(d => here().exits[d]);
+    },
+    move: d => tryMove(d),
+    rest: k => doRest(k),
+    search: () => doSearch(),
+    encounterOptions: () => (S && S.enc) ? ['fight', 'flee', 'hide'].filter(k => S.enc[k] !== null) : [],
+    encounterAct: k => resolveEncounter(k),
+    useItem: i => useItem(i),
+  };
+})();
+</script>
+</body>
+</html>

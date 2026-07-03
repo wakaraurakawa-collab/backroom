@@ -25,7 +25,7 @@ jobs:
       - name: Build site
         run: |
           mkdir dist
-          cp backrooms_prototype.html dist/index.html
+          cp nightschool.html dist/index.html
       - uses: actions/configure-pages@v5
         with:
           enablement: true
