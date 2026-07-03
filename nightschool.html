@@ -183,6 +183,36 @@
   #resultTitle.bad { color: var(--danger); }
   #resultBody { color: var(--dim); line-height: 2; max-width: 560px; }
   #resultStats { font-size: 13px; color: var(--ink); line-height: 1.9; }
+  #resultLog {
+    width: min(680px, calc(100vw - 40px)); max-height: 34vh; overflow-y: auto;
+    text-align: left; font-size: 12px; line-height: 1.8; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  }
+  #resultLog .l-good { color: var(--glow); }
+  #resultLog .l-bad { color: var(--danger); }
+  #resultLog .l-warn { color: var(--warn); }
+  #resultLog .l-roll { color: #8fa3b8; }
+  #copyRow { display: flex; gap: 10px; align-items: center; }
+  #copyFb { font-size: 12px; color: var(--glow); }
+
+  /* ---------- intro (tonight's rules) ---------- */
+  #introBox {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(460px, calc(100% - 32px));
+    background: rgba(10, 16, 12, 0.96); border: 1px solid var(--glow-dim);
+    border-radius: 12px; padding: 20px 22px; z-index: 20;
+    box-shadow: 0 0 40px rgba(127, 216, 176, 0.15);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #introBox h3 { color: var(--glow); font-size: 17px; letter-spacing: 0.25em; font-weight: 500; text-align: center; }
+  #introBox .rule { font-size: 13px; line-height: 1.9; color: var(--ink); }
+  #introBox .rule .dim { color: var(--dim); }
+  #introBox .glist { display: flex; flex-direction: column; gap: 5px; }
+  #introBox .gitem {
+    display: flex; justify-content: space-between; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
+  }
+  #introBox .gitem .where { color: var(--warn); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -201,6 +231,7 @@
   <div id="board-wrap">
     <div id="board"></div>
     <div id="offers"></div>
+    <div id="introBox" hidden></div>
   </div>
   <aside id="side">
     <div id="pHead">
@@ -237,7 +268,12 @@
   <div id="resultTitle"></div>
   <div id="resultBody"></div>
   <div id="resultStats"></div>
-  <button id="againBtn">もう一度、あの夜へ</button>
+  <div id="resultLog"></div>
+  <div id="copyRow">
+    <button id="copyLogBtn">今夜の記録をコピー</button>
+    <span id="copyFb"></span>
+    <button id="againBtn">もう一度、あの夜へ</button>
+  </div>
 </div>
 
 <script>
@@ -351,9 +387,9 @@
   ];
 
   const DIFFS = [
-    { name: '短い夜', turns: 14, encMul: 1.0 },
-    { name: '長い夜', turns: 20, encMul: 1.0 },
-    { name: '明けない夜', turns: 26, encMul: 1.25 },
+    { name: '短い夜', turns: 14, encMul: 1.0, goalCount: 2 },
+    { name: '長い夜', turns: 20, encMul: 1.0, goalCount: 3 },
+    { name: '明けない夜', turns: 26, encMul: 1.25, goalCount: 4 },
   ];
 
   const ROOMS = [
@@ -392,6 +428,14 @@
       fight: null, flee: 8, hide: 7, failFx: { mp: 2 } },
   ];
   const ROOM_ENEMY = { rika: 'hyouhon', toilet: 'toiletko', ongaku: 'housou', shokuin: 'youmuin', roka: 'haikai' };
+
+  // うしろから付いてくるもの。絶対に勝てない。逃げるしかない。
+  const FOLLOWER = {
+    key: 'ushiro', name: 'うしろのもの',
+    line: '——追いつかれた。それの形を、目が理解することを拒んでいる。',
+    fight: null, hide: null, flee: 8, failFx: null,
+    unstoppable: true, follower: true,
+  };
 
   const HAZARDS = [
     { name: '崩れた床', stat: 'agi', target: 8, failFx: { hp: 1 }, line: '床板が口を開けている。' },
@@ -496,10 +540,18 @@
   const LEFT_OF = { N: 'W', W: 'S', S: 'E', E: 'N' };
   const RIGHT_OF = { N: 'E', E: 'S', S: 'W', W: 'N' };
   const CELL = 148;
-  const GOAL_DEFS = [
-    { key: 'bag',   name: 'かばん',     rooms: ['kyou', 'bushitsu'], p: 0.5 },
-    { key: 'shoes', name: '上履き',     rooms: ['toilet', 'taiiku', 'bushitsu'], p: 0.5 },
-    { key: 'key',   name: '昇降口の鍵', rooms: ['shokuin'], p: 0.85 },
+  // 鍵は毎晩必須。残りは夜の長さに応じてプールから抽選される
+  const GOAL_POOL = [
+    { key: 'key',   name: '昇降口の鍵',   rooms: ['shokuin'], p: 0.85,
+      find: '教頭の机の引き出しに、昇降口の鍵。冷たい。' },
+    { key: 'shoes', name: '上履き',       rooms: ['toilet', 'taiiku', 'bushitsu'], p: 0.5,
+      find: '揃えて置かれた上履き。名前のところに、自分の字。' },
+    { key: 'bag',   name: 'かばん',       rooms: ['kyou', 'bushitsu'], p: 0.5,
+      find: 'ロッカーの陰に、見覚えのあるかばん。中身もそのまま。' },
+    { key: 'book',  name: '借りていた本', rooms: ['tosho'], p: 0.7,
+      find: '返却期限は、今日の日付だった。借りたままでは、帰れない。' },
+    { key: 'bento', name: 'お弁当箱',     rooms: ['kateika', 'kyou'], p: 0.5,
+      find: '流しの横に、洗って伏せられたお弁当箱。母の字のラベル。' },
   ];
 
   // ================= state =================
@@ -511,20 +563,27 @@
       char: c, diff: DIFFS[diffIdx],
       hp: c.hp, mp: c.mp, maxHp: c.hp, maxMp: c.mp,
       turn: 0, items: [],
-      goals: { bag: false, shoes: false, key: false },
+      goals: {}, activeGoals: [],
       map: new Map(), pos: { x: 0, y: 0 }, facing: 'N',
       offers: [], enc: null, student: null, pendingEnd: false,
       stays: 0, chalk: false, peekBuff: false, goalSense: 0,
-      timeStop: false, skipTick: false,
+      timeStop: false, skipTick: false, intro: true,
       drainCounter: 0, over: false, won: false, ending: null,
-      roomsExplored: 1, omamoriUsed: 0, metStudents: [],
+      roomsExplored: 1, omamoriUsed: 0, metStudents: [], fullLog: [],
     };
+    // 今夜の帰り支度: 鍵は必須、残りは夜の長さに応じて抽選
+    const others = GOAL_POOL.filter(g => g.key !== 'key').sort(() => Math.random() - 0.5);
+    S.activeGoals = [GOAL_POOL[0], ...others.slice(0, S.diff.goalCount - 1)];
+    for (const g of S.activeGoals) S.goals[g.key] = false;
     S.map.set('0,0', { x: 0, y: 0, room: { key: 'genkan', name: '昇降口', warped: false }, searched: true });
     $('log').innerHTML = '';
     log(`${c.name}。放課後の校舎に、まだ残っている。`, 'l-warn');
     log(`${S.diff.name} — 夜明けまで ${S.diff.turns} ターン。`);
-    log('昇降口の扉は開かない。上履きも、かばんも、見当たらない。');
-    log('帰り支度を揃えないと、朝が来ても帰れない。', 'l-warn');
+    log('昇降口の扉は開かない。帰り支度を揃えないと、朝が来ても帰れない。', 'l-warn');
+    for (const g of S.activeGoals) {
+      log(`【今夜のさがしもの】${g.name} — ${g.rooms.map(k => roomByKey(k).name).join('・')}にあるはず。`, 'l-warn');
+    }
+    log('それから——うしろから、なにか付いてきている。同じ場所に留まりすぎないこと。', 'l-bad');
     makeOffers();
     showScreen('game');
     renderAll();
@@ -602,9 +661,13 @@
       let w = r.w;
       // 詰み防止: 夜が深いのに鍵が無いなら職員室が現れやすくなる
       if (r.key === 'shokuin' && !S.goals.key && S.turn / S.diff.turns > 0.25) w += 8;
+      // 夜半を過ぎたら、まだ見つかっていないさがしものの部屋も少し現れやすく
+      if (S.turn / S.diff.turns > 0.5) {
+        for (const g of S.activeGoals) if (!S.goals[g.key] && g.rooms.includes(r.key)) { w += 3; break; }
+      }
       // ノート/屋上の効果: 足りない帰り支度の部屋が現れやすい
       if (S.goalSense > 0) {
-        for (const g of GOAL_DEFS) if (!S.goals[g.key] && g.rooms.includes(r.key)) { w *= 2; break; }
+        for (const g of S.activeGoals) if (!S.goals[g.key] && g.rooms.includes(r.key)) { w *= 2; break; }
       }
       return w;
     });
@@ -663,7 +726,7 @@
   }
 
   function chooseOffer(idx) {
-    if (S.over || S.enc || S.student) return;
+    if (S.over || S.enc || S.student || S.intro) return;
     const o = S.offers[idx];
     if (!o || o.blocked) return;
     const [dx, dy] = DIRS[o.abs];
@@ -702,7 +765,7 @@
   }
 
   function goalHint() {
-    const missing = GOAL_DEFS.filter(g => !S.goals[g.key]);
+    const missing = S.activeGoals.filter(g => !S.goals[g.key]);
     if (!missing.length) { log('帰り支度は、もう揃っている。あとは朝を待つだけ。', 'l-good'); return; }
     for (const g of missing) {
       const names = g.rooms.map(k => roomByKey(k).name).join('・');
@@ -713,6 +776,20 @@
   // ================= events =================
   function studentEvent() {
     const stu = genStudent();
+    // 一定割合で、様子のおかしい生徒が襲いかかってくる
+    if (Math.random() < 0.18) {
+      S.enc = {
+        key: 'stuHostile', name: `${stu.surname} ${stu.given}`,
+        line: `${stu.grade}年${stu.classNo}組、と名乗った。目が合ったまま、笑顔のまま、走ってくる。`,
+        fight: 7, flee: 7, hide: 8, failFx: { hp: 1, mp: 1 },
+        isStudent: true, look: stu.look,
+        staggered: false, rounds: 0,
+      };
+      log(`【遭遇】 生徒 —— ${stu.surname} ${stu.given}`, 'l-bad');
+      log(S.enc.line);
+      renderAll();
+      return;
+    }
     const ev = weightedPick(STUDENT_EVENTS, e => e.w);
     S.student = { stu, ev };
     // 矛盾チェック: 同じ学年・組なのに上履きの色が違う
@@ -748,35 +825,111 @@
     let e;
     if (roomKey && ROOM_ENEMY[roomKey] && Math.random() < 0.6) e = ENEMIES.find(x => x.key === ROOM_ENEMY[roomKey]);
     else e = pick(ENEMIES);
-    S.enc = e;
+    S.enc = { ...e, staggered: false, rounds: 0 };
     log(`【遭遇】 ${e.name}`, 'l-bad');
     log(e.line);
   }
 
-  function resolveEncounter(action) {
+  function startFollower() {
+    S.enc = { ...FOLLOWER, staggered: false, rounds: 0 };
+    log('【追いつかれた】 ' + FOLLOWER.name, 'l-bad');
+    log(FOLLOWER.line);
+    log('これに勝つ方法は、ない。走るしかない。', 'l-bad');
+  }
+
+  function hasWeapon() {
+    return S.items.some(it => it.type === 'passive' && it.stat === 'str');
+  }
+
+  // 遭遇中に取れる行動の一覧。素手では押しのけるだけ、武器があれば応戦できる。
+  // 応戦は倒すためではなく怯ませるため——怯んだ相手には確実に逃げられるし、
+  // もう一撃入れば撃退もできる。
+  function encActions() {
     const e = S.enc;
-    const kindMap = { fight: 'str', flee: 'agi', hide: 'int' };
-    const labelMap = { fight: '戦う', flee: '逃げる', hide: '隠れる' };
-    const ok = check(kindMap[action], e[action], labelMap[action]);
-    S.enc = null;
+    if (!e) return [];
+    const acts = [];
+    if (e.fight !== null) {
+      acts.push({ k: 'shove', label: '押しのける', stat: 'str', target: e.fight + 1, escape: true });
+      if (hasWeapon()) {
+        acts.push({ k: 'weapon', label: e.staggered ? '追撃する' : '武器で応戦', stat: 'str',
+          target: e.staggered ? e.fight - 2 : e.fight, escape: false });
+      }
+    }
+    if (e.flee !== null) acts.push({ k: 'flee', label: '逃げる', stat: 'agi', target: e.flee, escape: true, auto: e.staggered });
+    if (e.hide !== null) acts.push({ k: 'hide', label: '隠れる', stat: 'int', target: e.hide, escape: true });
+    return acts;
+  }
+
+  function defeatEnemy(e) {
+    if (e.isStudent) {
+      log(`${e.name}は泣きそうな顔になって、走り去っていった。`, 'l-good');
+      S.mp -= 1;
+      log('……悪いことをした気分だ。正気度-1', 'l-bad');
+      checkDead();
+      if (!S.over && Math.random() < 0.5) { log('落としていったものがある。'); giveItem(); }
+    } else {
+      log(`${e.name}を打ち払った。——今夜はもう、戻ってこない気がする。`, 'l-good');
+      heal(0, 1);
+      log('正気度+1', 'l-good');
+      if (S.char.ability === 'fighter') { heal(0, 1); log('澪「……なんだ、大したことないじゃん」 正気度+1', 'l-good'); }
+      if (Math.random() < 0.3) giveItem();
+    }
+  }
+
+  function resolveEncounter(k) {
+    const e = S.enc;
+    if (!e) return;
+    const act = encActions().find(a => a.k === k);
+    if (!act) return;
+    let ok;
+    if (act.auto) {
+      ok = true;
+      log('相手が怯んでいる隙に、走った。', 'l-roll');
+    } else {
+      ok = check(act.stat, act.target, act.label);
+    }
+    if (ok) {
+      if (k === 'weapon') {
+        if (e.staggered) {
+          S.enc = null;
+          defeatEnemy(e);
+          completeTurn();
+          return;
+        }
+        e.staggered = true;
+        log(`一撃。${e.name} が怯んだ。——今なら確実に逃げられる。追撃もできる。`, 'l-good');
+        renderAll();
+        return;
+      }
+      S.enc = null;
+      if (k === 'shove') log('体当たり気味に押しのけて、その横をすり抜けた。', 'l-good');
+      else if (k === 'flee') {
+        log('走った。来た道には戻れない——柱の陰に逸れて、やり過ごす。', 'l-good');
+        if (S.char.ability === 'runner') { heal(0, 1); log('ひな「陸上部なめないでよね!」 正気度+1', 'l-good'); }
+        if (e.follower) { S.stays = 0; log('振り切った。……今は。', 'l-warn'); }
+      }
+      else log('息を殺す。……行った、みたいだ。', 'l-good');
+      completeTurn();
+      return;
+    }
+    // 失敗
+    if (e.follower) { endGame('caught'); return; }
     const deep = phase().idx >= 2;
     const fx = { ...e.failFx };
     if (deep) { if (fx.hp) fx.hp += 1; else if (fx.mp) fx.mp += 1; }
-    if (ok) {
-      if (action === 'fight') {
-        log('追い払った。手が少し震えている。', 'l-good');
-        if (S.char.ability === 'fighter') { heal(0, 1); log('澪「……なんだ、大したことないじゃん」 正気度+1', 'l-good'); }
-      } else if (action === 'flee') {
-        log('走った。来た道には戻れない——柱の陰に逸れて、やり過ごす。', 'l-good');
-        if (S.char.ability === 'runner') { heal(0, 1); log('ひな「陸上部なめないでよね!」 正気度+1', 'l-good'); }
-      } else {
-        log('息を殺す。……行った、みたいだ。', 'l-good');
-      }
-    } else {
-      damage(fx);
-      if (!S.over) log('それでも、なんとか離れられた。');
+    damage(fx);
+    if (S.over) return;
+    e.rounds++;
+    if (e.rounds >= 3) {
+      S.enc = null;
+      S.mp -= 1;
+      log('それは、飽きたように離れていった。膝が笑っている。正気度-1', 'l-bad');
+      checkDead();
+      completeTurn();
+      return;
     }
-    completeTurn();
+    log('まだ、そこにいる。', 'l-bad');
+    renderAll();
   }
 
   // ================= actions in place =================
@@ -786,7 +939,7 @@
   }
 
   function doRest(kind) {
-    if (S.over || S.enc || S.student) return;
+    if (S.over || S.enc || S.student || S.intro) return;
     const cur = here();
     S.stays++;
     if (kind === 'hp') {
@@ -798,29 +951,35 @@
       log('深呼吸。まだ大丈夫。正気度+1', 'l-good');
     }
     S.pendingEnd = true;
-    if (Math.random() < stayRisk()) {
+    if (!checkFollower() && Math.random() < stayRisk()) {
       log('——物音。うしろの気配が、近い。', 'l-warn');
       startEncounter(cur.room.key);
     }
     completeTurn();
   }
 
+  // 留まりすぎると、うしろのものに追いつかれる。チョークの結界も効かない。
+  function checkFollower() {
+    if (S.stays < 3) return false;
+    if (Math.random() < 0.25 * (S.stays - 2)) { startFollower(); return true; }
+    return false;
+  }
+
   function doSearch() {
-    if (S.over || S.enc || S.student) return;
+    if (S.over || S.enc || S.student || S.intro) return;
     const cur = here();
     const rk = cur.room.key;
     S.stays++;
     S.pendingEnd = true;
+    if (checkFollower()) { completeTurn(); return; }
 
     // 帰り支度の発見判定を先に(粘れば同じ部屋で探し続けられる。その分、背後の気配は近づく)
-    const goal = GOAL_DEFS.find(g => !S.goals[g.key] && g.rooms.includes(rk));
+    const goal = S.activeGoals.find(g => !S.goals[g.key] && g.rooms.includes(rk));
     if (goal && Math.random() < goal.p + (S.char.ability === 'observe' ? 0.1 : 0)) {
       cur.searched = true;
       S.goals[goal.key] = true;
-      if (goal.key === 'bag') log('ロッカーの陰に、見覚えのあるかばん。中身もそのまま。【帰り支度: かばん】', 'l-good');
-      if (goal.key === 'shoes') log('揃えて置かれた上履き。名前のところに、自分の字。【帰り支度: 上履き】', 'l-good');
-      if (goal.key === 'key') log('教頭の机の引き出しに、昇降口の鍵。冷たい。【帰り支度: 昇降口の鍵】', 'l-good');
-      if (GOAL_DEFS.every(g2 => S.goals[g2.key])) log('帰り支度が、そろった。あとは夜明けまで。', 'l-warn');
+      log(`${goal.find}【帰り支度: ${goal.name}】`, 'l-good');
+      if (S.activeGoals.every(g2 => S.goals[g2.key])) log('帰り支度が、そろった。あとは夜明けまで。', 'l-warn');
       completeTurn();
       return;
     }
@@ -857,17 +1016,23 @@
   }
 
   function useItem(idx) {
-    if (S.over || S.student) return;
+    if (S.over || S.student || S.intro) return;
     const it = S.items[idx];
     if (!it || it.type !== 'use') return;
     const encOnly = it.key === 'salt' || it.key === 'orgel' || it.key === 'photo';
     if (S.enc) {
+      // 遭遇中: やり過ごし系と回復だけ使える(回復はラウンドを消費しない)
+      if (it.key === 'pan') { S.items.splice(idx, 1); heal(2, 0); log('走りながらパンをかじる。体力+2', 'l-good'); renderAll(); return; }
+      if (it.key === 'ramune') { S.items.splice(idx, 1); heal(0, 1); log('ラムネの音で、自分を取り戻す。正気度+1', 'l-good'); renderAll(); return; }
       if (!encOnly) return;
+      if (S.enc.unstoppable && it.key !== 'photo') { log('それには、効かない気がする。', 'l-warn'); return; }
+      const wasFollower = S.enc.follower;
       S.items.splice(idx, 1);
       if (it.key === 'salt') log('塩を撒いた。空気が、すっと軽くなる。', 'l-good');
       else if (it.key === 'orgel') log('オルゴールの蓋を開ける。澄んだ音。……気配が、遠ざかった。', 'l-good');
       else log('写真をかざす。写っていない生徒たちの視線が、相手に集まった。', 'l-good');
       S.enc = null;
+      if (wasFollower) { S.stays = 0; log('気配が、少しだけ後ろに下がった。', 'l-warn'); }
       completeTurn();
       return;
     }
@@ -921,7 +1086,7 @@
       }
     }
     if (!S.over && S.turn >= S.diff.turns) {
-      const all = GOAL_DEFS.every(g => S.goals[g.key]);
+      const all = S.activeGoals.every(g => S.goals[g.key]);
       endGame(all ? 'win' : 'noReturn');
     }
   }
@@ -947,20 +1112,41 @@
       } else if (kind === 'death') {
         t.textContent = '下 校 時 刻';
         b.innerHTML = '膝から力が抜けて、冷たい床の感触も遠くなる。<br>遠くでチャイムが鳴っている。もう、どうでもいいような気がした。';
+      } else if (kind === 'caught') {
+        t.textContent = '置 き 去 り';
+        b.innerHTML = 'うしろのものに、追いつかれた。<br>' +
+          '長く一つの場所にいすぎた。それはずっと、こちらの歩幅に合わせて歩いてくれていたのだ。<br>' +
+          '翌朝、その教室のカーテンは、窓が閉まっているのに揺れていたという。';
       } else {
         t.textContent = '転 入 届';
         b.innerHTML = `気がつくと、${S.char.name}は自分の席に座っていた。<br>` +
           '「ずっと前からこの学校の生徒だった」——そう思うと、なんだか安心した。<br>この学校には、生徒がとても多い。';
       }
-      const goalsGot = GOAL_DEFS.filter(g => S.goals[g.key]).map(g => g.name).join('・') || 'なし';
+      const goalsGot = S.activeGoals.filter(g => S.goals[g.key]).map(g => g.name).join('・') || 'なし';
       st.innerHTML = `探索した部屋: ${S.roomsExplored} / 生き延びたターン: ${S.turn} / ${S.diff.name}<br>` +
-        `集めた帰り支度: ${goalsGot}` + (S.omamoriUsed ? ` / 砕けたお守り: ${S.omamoriUsed}` : '');
+        `集めた帰り支度: ${goalsGot} (${S.activeGoals.filter(g => S.goals[g.key]).length}/${S.activeGoals.length})` +
+        (S.omamoriUsed ? ` / 砕けたお守り: ${S.omamoriUsed}` : '');
+      // 今夜の記録(全ログ)を結末込みで読める・コピーできるように
+      log('', null);
+      log(`—— ${t.textContent.replace(/ /g, '')} ——`, kind === 'win' ? 'l-good' : 'l-bad');
+      b.innerHTML.split('<br>').forEach(line => log(line.replace(/<[^>]*>/g, '')));
+      const rl = $('resultLog');
+      rl.innerHTML = '';
+      for (const entry of S.fullLog) {
+        const el = document.createElement('div');
+        if (entry.c) el.className = entry.c;
+        el.textContent = entry.t;
+        rl.appendChild(el);
+      }
+      rl.scrollTop = rl.scrollHeight;
+      $('copyFb').textContent = '';
       showScreen('result');
     }, 900);
   }
 
   // ================= log =================
   function log(text, cls) {
+    S.fullLog.push({ t: text, c: cls });
     const el = document.createElement('div');
     if (cls) el.className = cls;
     el.textContent = text;
@@ -988,12 +1174,13 @@
     $('turnLine').textContent = `${Math.max(0, S.diff.turns - S.turn)} ターン`;
     $('phaseFill').style.width = clamp(S.turn / S.diff.turns * 100, 0, 100) + '%';
     $('phaseName').textContent = '— ' + phase().name + ' —';
-    $('followLine').textContent = S.stays >= 1 ? 'うしろの気配: ' + '!'.repeat(Math.min(4, S.stays)) : '';
+    $('followLine').textContent = S.stays >= 3 ? 'うしろの気配: すぐそこにいる'
+      : S.stays >= 1 ? 'うしろの気配: ' + '!'.repeat(S.stays) : '';
 
     // goals
     const gb = $('goalBox');
     gb.innerHTML = '';
-    for (const g of GOAL_DEFS) {
+    for (const g of S.activeGoals) {
       const d = document.createElement('div');
       d.className = 'goal' + (S.goals[g.key] ? ' done' : '');
       d.textContent = (S.goals[g.key] ? '✓ ' : '') + g.name;
@@ -1028,16 +1215,24 @@
     const eb = $('encBox'), sb = $('stuBox'), ab = $('actionBox');
     if (S.enc) {
       eb.hidden = false; sb.hidden = true; ab.innerHTML = '';
-      eb.innerHTML = `<div class="ename">${S.enc.name}</div><div class="eline">${S.enc.line}</div>`;
+      const e = S.enc;
+      const portrait = e.look ? `<div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="width:64px;flex:none;border-radius:6px;overflow:hidden;background:#050807">${portraitSVG(e.look)}</div>
+          <div><div class="ename">${e.name}</div><div class="eline">${e.line}</div></div>
+        </div>` : `<div class="ename">${e.name}</div><div class="eline">${e.line}</div>`;
+      const status = e.follower ? '<div class="eline" style="color:var(--danger)">勝てない。逃げるしかない。</div>'
+        : e.staggered ? '<div class="eline" style="color:var(--warn)">相手は怯んでいる——確実に逃げられる。追撃すれば撃退できるかもしれない。</div>'
+        : (e.fight !== null && !hasWeapon()) ? '<div class="eline">武器がない。押しのけて逃げるくらいしかできない。</div>' : '';
+      eb.innerHTML = portrait + status;
       const row = document.createElement('div');
-      row.style.display = 'flex'; row.style.gap = '6px';
-      [['fight', '戦う'], ['flee', '逃げる'], ['hide', '隠れる']].forEach(([k, label]) => {
+      row.style.display = 'flex'; row.style.gap = '6px'; row.style.flexWrap = 'wrap';
+      encActions().forEach(a => {
         const b = document.createElement('button');
         b.style.flex = '1';
-        const t = S.enc[k];
-        b.textContent = t === null ? label + '(無理だ)' : `${label} (${t}+)`;
-        b.disabled = t === null || S.over;
-        b.addEventListener('click', () => resolveEncounter(k));
+        b.style.minWidth = '40%';
+        b.textContent = a.auto ? `${a.label}(確実)` : `${a.label} (${a.target}+)`;
+        b.disabled = S.over;
+        b.addEventListener('click', () => resolveEncounter(a.k));
         row.appendChild(b);
       });
       eb.appendChild(row);
@@ -1068,19 +1263,41 @@
         b.addEventListener('click', fn);
         ab.appendChild(b);
       };
-      mk('手当て(体力+' + (cur.room.key === 'hoken' ? 2 : 1) + ')', () => doRest('hp'), S.hp >= S.maxHp);
-      mk('深呼吸(正気度+1)', () => doRest('mp'), S.mp >= S.maxMp);
-      mk('探索する', doSearch);
+      mk('手当て(体力+' + (cur.room.key === 'hoken' ? 2 : 1) + ')', () => doRest('hp'), S.hp >= S.maxHp || S.intro);
+      mk('深呼吸(正気度+1)', () => doRest('mp'), S.mp >= S.maxMp || S.intro);
+      mk('探索する', doSearch, S.intro);
     }
 
+    renderIntro();
     renderOffers();
     renderBoard();
+  }
+
+  function renderIntro() {
+    const box = $('introBox');
+    if (!S.intro || S.over) { box.hidden = true; return; }
+    box.hidden = false;
+    const goalRows = S.activeGoals.map(g =>
+      `<div class="gitem"><span>${g.name}</span><span class="where">${g.rooms.map(k => roomByKey(k).name).join('・')}</span></div>`
+    ).join('');
+    box.innerHTML = `<h3>今夜のきまり</h3>
+      <div class="rule">・夜明けまで <b>${S.diff.turns}ターン</b>。生き延びること。<br>
+      ・帰るには、下の<b>帰り支度</b>を探索で集めておくこと。</div>
+      <div class="glist">${goalRows}</div>
+      <div class="rule dim">・来た道には戻れない。うしろから、なにか付いてきている。<br>
+      ・同じ場所に留まりすぎると、<b>追いつかれる</b>。それに勝つ方法はない。<br>
+      ・体力が尽きれば死ぬ。正気度が尽きれば——この学校の生徒になる。</div>`;
+    const b = document.createElement('button');
+    b.id = 'introOk';
+    b.textContent = 'わかった';
+    b.addEventListener('click', () => { S.intro = false; renderAll(); });
+    box.appendChild(b);
   }
 
   function renderOffers() {
     const box = $('offers');
     box.innerHTML = '';
-    if (!S || S.over || S.enc || S.student) return;
+    if (!S || S.over || S.enc || S.student || S.intro) return;
     S.offers.forEach((o, i) => {
       const d = document.createElement('div');
       d.className = 'offer' + (o.blocked ? ' blocked' : '');
@@ -1190,6 +1407,20 @@
   buildTitle();
   $('startBtn').addEventListener('click', () => newGame(selChar, selDiff));
   $('againBtn').addEventListener('click', () => { showScreen('title'); buildTitle(); });
+  $('copyLogBtn').addEventListener('click', async () => {
+    const text = S ? S.fullLog.map(e => e.t).join('\n') : '';
+    const done = () => { $('copyFb').textContent = 'コピーした。'; };
+    try { await navigator.clipboard.writeText(text); done(); }
+    catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); }
+      catch (err2) { $('copyFb').textContent = 'コピーできなかった。'; }
+      ta.remove();
+    }
+  });
 
   // ================= debug hooks =================
   window.__game = {
@@ -1205,7 +1436,8 @@
     rest: k => doRest(k),
     search: () => doSearch(),
     dismissStudent: () => dismissStudent(),
-    encounterOptions: () => (S && S.enc) ? ['fight', 'flee', 'hide'].filter(k => S.enc[k] !== null) : [],
+    encounterOptions: () => (S && S.enc) ? encActions().map(a => a.k) : [],
+    dismissIntro: () => { if (S) { S.intro = false; renderAll(); } },
     encounterAct: k => resolveEncounter(k),
     useItem: i => useItem(i),
   };
