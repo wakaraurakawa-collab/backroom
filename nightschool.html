@@ -104,14 +104,14 @@
     display: flex; flex-direction: column; gap: 5px;
     transition: border-color 0.15s, transform 0.15s;
   }
-  .offer:hover:not(.blocked) { border-color: var(--glow); transform: translateY(-4px); }
+  .offer:hover { border-color: var(--glow); transform: translateY(-4px); }
   .offer .odir { font-size: 11px; color: var(--dim); letter-spacing: 0.3em; }
   .offer .oart { height: 74px; border-radius: 6px; overflow: hidden; background: #050807; }
   .offer .oart svg { width: 100%; height: 100%; }
   .offer .oname { font-size: 14px; letter-spacing: 0.1em; }
   .offer .ohint { font-size: 11px; min-height: 15px; color: var(--warn); }
-  .offer.blocked { cursor: default; opacity: 0.6; }
-  .offer.blocked .oname { color: var(--danger); font-size: 12px; }
+  .room.unopened { opacity: 0.4; border-style: dashed; }
+  .room .rtag { display: block; font-size: 9px; color: var(--dim); letter-spacing: 0.1em; }
 
   /* ---------- side panel ---------- */
   #side {
@@ -270,6 +270,7 @@
   <div id="resultStats"></div>
   <div id="resultLog"></div>
   <div id="copyRow">
+    <button id="logModeBtn">全記録(ダイス込み)を見る</button>
     <button id="copyLogBtn">今夜の記録をコピー</button>
     <span id="copyFb"></span>
     <button id="againBtn">もう一度、あの夜へ</button>
@@ -536,10 +537,9 @@
     { name: '夜明け前', until: 1.01, encMul: 1.2 },
   ];
 
-  const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
-  const LEFT_OF = { N: 'W', W: 'S', S: 'E', E: 'N' };
-  const RIGHT_OF = { N: 'E', E: 'S', S: 'W', W: 'N' };
   const CELL = 148;
+  // 前進はしご型マップ: 毎ターン必ず1段前へ。左/前/右で列がずれる
+  const OFFER_DIRS = [['左', -1], ['前', 0], ['右', 1]];
   // 鍵は毎晩必須。残りは夜の長さに応じてプールから抽選される
   const GOAL_POOL = [
     { key: 'key',   name: '昇降口の鍵',   rooms: ['shokuin'], p: 0.85,
@@ -564,10 +564,10 @@
       hp: c.hp, mp: c.mp, maxHp: c.hp, maxMp: c.mp,
       turn: 0, items: [],
       goals: {}, activeGoals: [],
-      map: new Map(), pos: { x: 0, y: 0 }, facing: 'N',
+      map: new Map(), pos: { col: 0, row: 0 },
       offers: [], enc: null, student: null, pendingEnd: false,
       stays: 0, chalk: false, peekBuff: false, goalSense: 0,
-      timeStop: false, skipTick: false, intro: true,
+      timeStop: false, skipTick: false, intro: true, phaseIdx: 0,
       drainCounter: 0, over: false, won: false, ending: null,
       roomsExplored: 1, omamoriUsed: 0, metStudents: [], fullLog: [],
     };
@@ -575,7 +575,7 @@
     const others = GOAL_POOL.filter(g => g.key !== 'key').sort(() => Math.random() - 0.5);
     S.activeGoals = [GOAL_POOL[0], ...others.slice(0, S.diff.goalCount - 1)];
     for (const g of S.activeGoals) S.goals[g.key] = false;
-    S.map.set('0,0', { x: 0, y: 0, room: { key: 'genkan', name: '昇降口', warped: false }, searched: true });
+    S.map.set('0,0', { col: 0, row: 0, room: { key: 'genkan', name: '昇降口', warped: false }, searched: true, opened: true });
     $('log').innerHTML = '';
     log(`${c.name}。放課後の校舎に、まだ残っている。`, 'l-warn');
     log(`${S.diff.name} — 夜明けまで ${S.diff.turns} ターン。`);
@@ -590,9 +590,8 @@
     centerOnPlayer(false);
   }
 
-  const key = (x, y) => x + ',' + y;
-  const cellAt = (x, y) => S.map.get(key(x, y)) || null;
-  const here = () => cellAt(S.pos.x, S.pos.y);
+  const key = (col, row) => col + ',' + row;
+  const here = () => S.map.get(key(S.pos.col, S.pos.row));
 
   function phase() {
     const p = S.turn / S.diff.turns;
@@ -612,7 +611,7 @@
     const d1 = ri(1, 6), d2 = ri(1, 6);
     const total = d1 + d2 + st;
     const ok = total >= target;
-    log(`${label} — 2d6(${d1}+${d2})+${st} = ${total} / 目標${target} … ${ok ? '成功' : '失敗'}`, 'l-roll');
+    log(`${label} — 2d6(${d1}+${d2})+${st} = ${total} / 目標${target} … ${ok ? '成功' : '失敗'}`, 'l-roll', true);
     if (!ok) {
       const oi = S.items.findIndex(it => it.key === 'omamori');
       if (oi !== -1) {
@@ -678,68 +677,48 @@
     return weightedPick(Object.keys(w), k => w[k]);
   }
 
+  // 常に一段先の3部屋(左/前/右)。前の段には戻れないので、衝突も行き止まりもない
   function makeOffers() {
-    const dirs = [['左', LEFT_OF[S.facing]], ['前', S.facing], ['右', RIGHT_OF[S.facing]]];
-    S.offers = [];
-    let allBlocked = true;
-    for (const [label, abs] of dirs) {
-      const [dx, dy] = DIRS[abs];
-      if (cellAt(S.pos.x + dx, S.pos.y + dy)) {
-        S.offers.push({ label, abs, blocked: true });
-      } else {
-        allBlocked = false;
-        const type = drawRoomType();
-        S.offers.push({ label, abs, blocked: false, type, evKind: preRollEvent(type), revealed: S.peekBuff });
-      }
-    }
+    S.offers = OFFER_DIRS.map(([label, dc]) => {
+      const type = drawRoomType();
+      return { label, dc, type, evKind: preRollEvent(type), revealed: S.peekBuff };
+    });
     S.peekBuff = false;
-    if (allBlocked) {
-      // 自分の軌跡に囲まれた: 校舎が組み変わり、少し先の空き地点へ
-      log('三方から、足音。……壁が、頁をめくるように捲れた。', 'l-warn');
-      const [fx, fy] = DIRS[S.facing];
-      let placed = false;
-      for (let step = 2; step <= 8 && !placed; step++) {
-        const nx = S.pos.x + fx * step, ny = S.pos.y + fy * step;
-        if (!cellAt(nx, ny)) {
-          S.map.set(key(nx, ny), { x: nx, y: ny, room: { key: 'yuganda', name: '歪んだ廊下', warped: true }, searched: false });
-          S.pos = { x: nx, y: ny };
-          S.roomsExplored++;
-          placed = true;
-        }
-      }
-      if (!placed) {
-        // ほぼ起こらないが保険: どこか空いている隣接を探して全マップ走査
-        outer: for (let r = 1; r < 30; r++) {
-          for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
-            const nx = S.pos.x + dx, ny = S.pos.y + dy;
-            if (!cellAt(nx, ny)) {
-              S.map.set(key(nx, ny), { x: nx, y: ny, room: { key: 'yuganda', name: '歪んだ廊下', warped: true }, searched: false });
-              S.pos = { x: nx, y: ny };
-              S.roomsExplored++;
-              break outer;
-            }
-          }
-        }
-      }
-      makeOffers();
-    }
   }
+
+  const MOVE_LINES = [
+    (d, r) => `${d}の扉を引く。冷えた空気。——${r}だ。`,
+    (d, r) => `${d}へ。蝶番がちいさく鳴いて、${r}が現れる。`,
+    (d, r) => `${d}の扉を選んだ。すきま風。その先は${r}。`,
+    (d, r) => `迷わなかったふりをして、${d}の扉を開ける。${r}。`,
+    (d, r) => `${d}。ノブは氷みたいだった。${r}に出る。`,
+  ];
 
   function chooseOffer(idx) {
     if (S.over || S.enc || S.student || S.intro) return;
     const o = S.offers[idx];
-    if (!o || o.blocked) return;
-    const [dx, dy] = DIRS[o.abs];
-    const nx = S.pos.x + dx, ny = S.pos.y + dy;
-    const cell = { x: nx, y: ny, room: o.type, searched: false };
-    S.map.set(key(nx, ny), cell);
+    if (!o) return;
+    const newRow = S.pos.row + 1;
+    // 選ばなかった2枚は「開けなかった扉」として盤面に残る
+    const unopenedNames = [];
+    for (const other of S.offers) {
+      if (other === o) continue;
+      S.map.set(key(S.pos.col + other.dc, newRow),
+        { col: S.pos.col + other.dc, row: newRow, room: other.type, searched: false, opened: false });
+      unopenedNames.push(other.type.name);
+    }
+    const col = S.pos.col + o.dc;
+    const cell = { col, row: newRow, room: o.type, searched: false, opened: true };
+    S.map.set(key(col, newRow), cell);
     S.roomsExplored++;
-    S.pos = { x: nx, y: ny };
-    S.facing = o.abs;
+    S.pos = { col, row: newRow };
     S.stays = 0;
     S.chalk = false;
     S.pendingEnd = true;
-    log(`${o.label}の扉へ。—— ${o.type.name}。`);
+    log(pick(MOVE_LINES)(o.label, o.type.name));
+    if (Math.random() < 0.18 && unopenedNames.length) {
+      log(`開けなかった${pick(unopenedNames)}の扉が、うしろで小さく軋んだ。`);
+    }
     roomArrival(cell, o.evKind);
     completeTurn();
     centerOnPlayer(true);
@@ -884,7 +863,6 @@
     let ok;
     if (act.auto) {
       ok = true;
-      log('相手が怯んでいる隙に、走った。', 'l-roll');
     } else {
       ok = check(act.stat, act.target, act.label);
     }
@@ -1042,7 +1020,7 @@
     else if (it.key === 'ramune') { heal(0, 1); log('ラムネを口に放り込む。甘い。正気度+1', 'l-good'); }
     else if (it.key === 'chalk') { S.chalk = true; log('チョークで足元に輪を描いた。ここにいる間は、たぶん大丈夫。', 'l-good'); }
     else if (it.key === 'camera') {
-      S.offers.forEach(o => { if (!o.blocked) o.revealed = true; });
+      S.offers.forEach(o => { o.revealed = true; });
       log('フラッシュ。焼き付いた残像に、この先の気配が写っている。', 'l-good');
     }
     else if (it.key === 'note') {
@@ -1077,6 +1055,13 @@
     if (S.skipTick) { S.skipTick = false; return; }
     S.turn++;
     const ph = phase();
+    // 章見出し: 時間帯が変わった瞬間をログに刻む(読み物の区切りになる)
+    if (ph.idx !== S.phaseIdx) {
+      S.phaseIdx = ph.idx;
+      log(`——— ${ph.name} ———`, 'l-warn');
+      const PHASE_LINES = ['', '校舎の音が、ひとつ減った気がする。', '空気が水みたいに重い。いちばん深い時間だ。', '夜の底が抜けて、遠くがほんの少しだけ明るい。'];
+      if (PHASE_LINES[ph.idx]) log(PHASE_LINES[ph.idx]);
+    }
     if (ph.idx === 2 && S.char.ability !== 'nightowl') {
       S.drainCounter++;
       if (S.drainCounter % 3 === 0) {
@@ -1130,23 +1115,32 @@
       log('', null);
       log(`—— ${t.textContent.replace(/ /g, '')} ——`, kind === 'win' ? 'l-good' : 'l-bad');
       b.innerHTML.split('<br>').forEach(line => log(line.replace(/<[^>]*>/g, '')));
-      const rl = $('resultLog');
-      rl.innerHTML = '';
-      for (const entry of S.fullLog) {
-        const el = document.createElement('div');
-        if (entry.c) el.className = entry.c;
-        el.textContent = entry.t;
-        rl.appendChild(el);
-      }
-      rl.scrollTop = rl.scrollHeight;
+      resultStoryMode = true;
+      renderResultLog();
       $('copyFb').textContent = '';
       showScreen('result');
     }, 900);
   }
 
+  // 読み物モード(既定)ではダイス目などの機械的な行を隠す
+  let resultStoryMode = true;
+  function renderResultLog() {
+    const rl = $('resultLog');
+    rl.innerHTML = '';
+    for (const entry of S.fullLog) {
+      if (resultStoryMode && entry.m) continue;
+      const el = document.createElement('div');
+      if (entry.c) el.className = entry.c;
+      el.textContent = entry.t;
+      rl.appendChild(el);
+    }
+    $('logModeBtn').textContent = resultStoryMode ? '全記録(ダイス込み)を見る' : '読み物として見る';
+  }
+
   // ================= log =================
-  function log(text, cls) {
-    S.fullLog.push({ t: text, c: cls });
+  // mech=true の行はゲーム的な記録(ダイス目など)。読み物モードでは畳まれる
+  function log(text, cls, mech) {
+    S.fullLog.push({ t: text, c: cls, m: !!mech });
     const el = document.createElement('div');
     if (cls) el.className = cls;
     el.textContent = text;
@@ -1300,19 +1294,12 @@
     if (!S || S.over || S.enc || S.student || S.intro) return;
     S.offers.forEach((o, i) => {
       const d = document.createElement('div');
-      d.className = 'offer' + (o.blocked ? ' blocked' : '');
-      if (o.blocked) {
-        d.innerHTML = `<div class="odir">${o.label}</div>
-          <div class="oart"></div>
-          <div class="oname">足音がする</div>
-          <div class="ohint">来た道には、戻れない</div>`;
-      } else {
-        d.innerHTML = `<div class="odir">${o.label}</div>
-          <div class="oart">${roomArtSVG(o.type.key, o.type.warped)}</div>
-          <div class="oname">${o.type.name}</div>
-          <div class="ohint">${o.revealed ? HINT_TEXT[o.evKind] : ''}</div>`;
-        d.addEventListener('click', () => chooseOffer(i));
-      }
+      d.className = 'offer';
+      d.innerHTML = `<div class="odir">${o.label}</div>
+        <div class="oart">${roomArtSVG(o.type.key, o.type.warped)}</div>
+        <div class="oname">${o.type.name}</div>
+        <div class="ohint">${o.revealed ? HINT_TEXT[o.evKind] : ''}</div>`;
+      d.addEventListener('click', () => chooseOffer(i));
       box.appendChild(d);
     });
   }
@@ -1322,19 +1309,19 @@
     board.innerHTML = '';
     for (const cell of S.map.values()) {
       const d = document.createElement('div');
-      d.className = 'room' + (cell.room.warped ? ' warped' : '');
-      if (cell.x === S.pos.x && cell.y === S.pos.y) d.classList.add('cur');
-      d.style.left = (cell.x * CELL) + 'px';
-      d.style.top = (cell.y * CELL) + 'px';
+      d.className = 'room' + (cell.room.warped ? ' warped' : '') + (cell.opened ? '' : ' unopened');
+      if (cell.col === S.pos.col && cell.row === S.pos.row) d.classList.add('cur');
+      d.style.left = (cell.col * CELL) + 'px';
+      d.style.top = (-cell.row * CELL) + 'px';
       d.innerHTML = `<div class="rart">${roomArtSVG(cell.room.key === 'genkan' ? 'genkan' : cell.room.key, cell.room.warped)}</div>` +
-        `<div class="rname">${cell.room.name}</div>`;
+        `<div class="rname">${cell.room.name}${cell.opened ? '' : '<span class="rtag">開けなかった</span>'}</div>`;
       board.appendChild(d);
     }
     const m = document.createElement('div');
     m.id = 'marker';
     m.textContent = S.char.name[3] || S.char.name[0];
-    m.style.left = (S.pos.x * CELL + 45) + 'px';
-    m.style.top = (S.pos.y * CELL + 45) + 'px';
+    m.style.left = (S.pos.col * CELL + 45) + 'px';
+    m.style.top = (-S.pos.row * CELL + 45) + 'px';
     board.appendChild(m);
   }
 
@@ -1345,8 +1332,8 @@
   }
   function centerOnPlayer(smooth) {
     const wrap = $('board-wrap');
-    view.ox = wrap.clientWidth / 2 - (S.pos.x * CELL + 60) * view.scale;
-    view.oy = wrap.clientHeight / 2 - 60 - (S.pos.y * CELL + 60) * view.scale;
+    view.ox = wrap.clientWidth / 2 - (S.pos.col * CELL + 60) * view.scale;
+    view.oy = wrap.clientHeight / 2 - 60 - (-S.pos.row * CELL + 60) * view.scale;
     $('board').style.transition = smooth ? 'transform 0.35s ease' : 'none';
     applyView();
   }
@@ -1407,8 +1394,12 @@
   buildTitle();
   $('startBtn').addEventListener('click', () => newGame(selChar, selDiff));
   $('againBtn').addEventListener('click', () => { showScreen('title'); buildTitle(); });
+  $('logModeBtn').addEventListener('click', () => {
+    resultStoryMode = !resultStoryMode;
+    renderResultLog();
+  });
   $('copyLogBtn').addEventListener('click', async () => {
-    const text = S ? S.fullLog.map(e => e.t).join('\n') : '';
+    const text = S ? S.fullLog.filter(e => !(resultStoryMode && e.m)).map(e => e.t).join('\n') : '';
     const done = () => { $('copyFb').textContent = 'コピーした。'; };
     try { await navigator.clipboard.writeText(text); done(); }
     catch (err) {
@@ -1431,7 +1422,7 @@
       items: S.items.map(i => i.key), goals: { ...S.goals },
       here: here().room.key, pos: { ...S.pos },
     },
-    offers: () => S ? S.offers.map((o, i) => ({ i, label: o.label, blocked: o.blocked, type: o.type && o.type.key })) : [],
+    offers: () => S ? S.offers.map((o, i) => ({ i, label: o.label, type: o.type.key })) : [],
     choose: i => chooseOffer(i),
     rest: k => doRest(k),
     search: () => doSearch(),
